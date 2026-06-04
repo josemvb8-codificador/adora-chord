@@ -8,13 +8,14 @@ import SongViewer from "@/components/SongViewer";
 import SongEditor from "@/components/SongEditor";
 import ImportSong from "@/components/ImportSong";
 import QuickChordEditor from "@/components/QuickChordEditor";
+import DeleteSongButton from "@/components/DeleteSongButton";
 import ChordModal from "@/components/ChordModal";
 import AdoraLogo from "@/components/AdoraLogo";
 import { Menu, X, Pencil, Wand2 } from "lucide-react";
 
 export default function Home() {
   const { user, loading, init } = useAuthStore();
-  const { fetchSongs, activeSongId, chordModalChord } = useSongsStore();
+  const { fetchSongs, activeSongId, chordModalChord, songs } = useSongsStore();
 
   const [showEditor, setShowEditor] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -71,13 +72,18 @@ export default function Home() {
 
         {/* Desktop action bar */}
         {activeSongId && (
-          <div className="hidden md:flex justify-end gap-3 px-4 pt-3">
+          <div className="hidden md:flex justify-end items-center gap-4 px-4 pt-3">
             <button onClick={() => setShowQuickEdit(true)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--c-text3)" }}>
               <Wand2 size={13} /> Editor rápido
             </button>
             <button onClick={openEdit} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--c-text3)" }}>
               <Pencil size={13} /> Editar
             </button>
+            <DeleteSongButton
+              songId={activeSongId}
+              songTitle={songs.find(s => s.id === activeSongId)?.title ?? ""}
+              onDeleted={() => {}}
+            />
           </div>
         )}
 

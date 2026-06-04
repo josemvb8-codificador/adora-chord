@@ -1,20 +1,55 @@
 import { Section, SongLine, ChordPosition } from "@/types";
 
-// Chord token regex: G, Am, F#m7, Bb/D, Dsus4, Cadd9, etc.
-const CHORD_TOKEN = /^[A-G][b#]?(maj|min|m|M|dim|aug|sus|add)?[2-9]?(\/[A-G][b#]?)?$/;
+// ─── Chord detection ────────────────────────────────────────────────────────
+
+// American notation: G, Am, F#m7, Bb/D, Dsus4, Cadd9, G7, Cmaj7, etc.
+const CHORD_AMERICAN = /^[A-G][b#]?(maj|min|m|M|dim|aug|sus|add)?[2-9]?(\/[A-G][b#]?)?$/;
+
+// Solfège notation (Spanish/Latin American): Do, Re, Mi, Fa, Sol, La, Si
+// + variations: Dom, Rem, Solm, Lam, etc. + modifiers
+const SOLFEGE_ROOTS = "(?:Do|Re|Mi|Fa|Sol|La|Si)";
+const CHORD_SOLFEGE = new RegExp(
+  `^${SOLFEGE_ROOTS}[b#]?(maj|min|m|M|dim|aug|sus|add)?[2-9]?(\\/${SOLFEGE_ROOTS}[b#]?)?$`,
+  "i"
+);
 
 export function isChord(word: string): boolean {
-  return CHORD_TOKEN.test(word.trim());
+  const w = word.trim();
+  return CHORD_AMERICAN.test(w) || CHORD_SOLFEGE.test(w);
+}
+
+// Solfège → American mapping for display/transposition
+export const SOLFEGE_TO_AMERICAN: Record<string, string> = {
+  do: "C", "do#": "C#", dob: "Cb",
+  re: "D", "re#": "D#", reb: "Db",
+  mi: "E", mib: "Eb",
+  fa: "F", "fa#": "F#",
+  sol: "G", "sol#": "G#", solb: "Gb",
+  la: "A", "la#": "A#", lab: "Ab",
+  si: "B", sib: "Bb",
+};
+
+export function normalizeSolfege(chord: string): string {
+  // Convert solfège chord to American notation if needed
+  const lower = chord.toLowerCase();
+  for (const [sol, amer] of Object.entries(SOLFEGE_TO_AMERICAN)) {
+    if (lower.startsWith(sol)) {
+      const suffix = chord.slice(sol.length);
+      return amer + suffix;
+    }
+  }
+  return chord;
 }
 
 export function isChordLine(line: string): boolean {
   const trimmed = line.trim();
-  if (!trimmed || trimmed.length > 120) return false;
+  if (!trimmed || trimmed.length > 150) return false;
   const tokens = trimmed.split(/\s+/).filter(Boolean);
   if (!tokens.length) return false;
   const chordCount = tokens.filter(isChord).length;
-  const hasLongNonChordWord = tokens.some((t) => t.length > 7 && !isChord(t));
-  return chordCount >= 1 && chordCount / tokens.length >= 0.6 && !hasLongNonChordWord;
+  // Reject if there's a long non-chord word (likely a lyric line)
+  const hasLongWord = tokens.some((t) => t.length > 8 && !isChord(t));
+  return chordCount >= 1 && chordCount / tokens.length >= 0.55 && !hasLongWord;
 }
 
 export function isSectionHeader(line: string): boolean {
@@ -37,38 +72,34 @@ export function parseSectionType(line: string): { type: Section["type"]; name: s
 }
 
 /**
- * Given a raw chord line (e.g. "G        Am    F     C")
- * and the lyric line below it, compute the character position
- * of each chord relative to the lyric string.
+ * Parse chord tokens from a chord line, preserving their column positions
+ * so they can be displayed above the correct syllable in the lyric line.
  */
 function parseChordsWithPositions(chordLine: string, lyricLine: string): ChordPosition[] {
   const result: ChordPosition[] = [];
   const re = /(\S+)/g;
   let match: RegExpExecArray | null;
-
   while ((match = re.exec(chordLine)) !== null) {
     const token = match[1];
     if (!isChord(token)) continue;
-    // Column position in the chord line
     const col = match.index;
-    // Map column to a character position in the lyric (clamp to lyric length)
-    const pos = lyricLine.length > 0 ? Math.min(col, lyricLine.length) : col;
-    result.push({ chord: token, pos });
+    const pos = lyricLine.length > 0 ? Math.min(col, Math.max(0, lyricLine.length - 1)) : col;
+    // Normalize solfège to American for storage
+    result.push({ chord: normalizeSolfege(token), pos });
   }
   return result;
 }
 
 function uid() { return crypto.randomUUID(); }
 
-// Clean PDF artifacts: remove // separators, form feeds, etc.
 function cleanText(text: string): string {
   return text
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
-    .replace(/\f/g, "\n\n")
-    .replace(/\/\//g, "")          // // artifacts from some PDF exporters
-    .replace(/[ \t]+$/gm, "")      // trailing spaces per line
-    .replace(/\n{3,}/g, "\n\n");   // collapse 3+ blank lines to 2
+    .replace(/\f/g, "\n\n")      // form feed → blank line
+    .replace(/[ \t]+$/gm, "")    // trailing spaces
+    .replace(/\n{3,}/g, "\n\n"); // max 2 consecutive blank lines
+  // Note: we keep // in text since it can be a lyric repeat marker
 }
 
 export interface ParsedSong {
@@ -83,7 +114,7 @@ export function parseSongText(rawText: string, filename = ""): ParsedSong {
   const text = cleanText(rawText);
   const lines = text.split("\n");
 
-  // ── Detect title / artist ──
+  // ── Title / artist detection ──
   let titleLine = "";
   let artistLine = "";
   let startIndex = 0;
@@ -93,7 +124,7 @@ export function parseSongText(rawText: string, filename = ""): ParsedSong {
     const { l, i } = nonEmpty[n];
     if (!isSectionHeader(l) && !isChordLine(l)) {
       if (!titleLine) { titleLine = l.trim(); startIndex = i + 1; }
-      else if (!artistLine) { artistLine = l.trim(); startIndex = i + 1; }
+      else if (!artistLine && n <= 2) { artistLine = l.trim(); startIndex = i + 1; }
       else break;
     } else break;
   }
@@ -106,11 +137,9 @@ export function parseSongText(rawText: string, filename = ""): ParsedSong {
     const raw = lines[i];
     const trimmed = raw.trimEnd();
 
-    // Blank line: flush pending chords as standalone line
     if (!trimmed.trim()) {
       if (pendingChordLine !== null) {
-        const chords = parseChordsWithPositions(pendingChordLine, "");
-        current.lines.push({ lyrics: "", chords });
+        current.lines.push({ lyrics: "", chords: parseChordsWithPositions(pendingChordLine, "") });
         pendingChordLine = null;
       }
       continue;
@@ -128,7 +157,6 @@ export function parseSongText(rawText: string, filename = ""): ParsedSong {
     }
 
     if (isChordLine(trimmed)) {
-      // Flush previous chord line that had no lyric
       if (pendingChordLine !== null) {
         current.lines.push({ lyrics: "", chords: parseChordsWithPositions(pendingChordLine, "") });
       }
@@ -136,16 +164,14 @@ export function parseSongText(rawText: string, filename = ""): ParsedSong {
       continue;
     }
 
-    // Lyric line — pair with pending chords if any
-    const lyric = trimmed.trim();
+    // Lyric line
     const chords = pendingChordLine !== null
-      ? parseChordsWithPositions(pendingChordLine, lyric)
+      ? parseChordsWithPositions(pendingChordLine, trimmed.trim())
       : [];
     pendingChordLine = null;
-    current.lines.push({ lyrics: lyric, chords });
+    current.lines.push({ lyrics: trimmed.trim(), chords });
   }
 
-  // Flush leftovers
   if (pendingChordLine !== null) {
     current.lines.push({ lyrics: "", chords: parseChordsWithPositions(pendingChordLine, "") });
   }
