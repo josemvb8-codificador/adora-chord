@@ -1,11 +1,12 @@
 "use client";
+import { useState } from "react";
 import { useSongsStore, getTransposedSong } from "@/store/songs";
 import { chordToNotation } from "@/lib/chords";
-import { ChevronUp, ChevronDown, Guitar } from "lucide-react";
+import { ChevronUp, ChevronDown, Download, FileText, FileType2 } from "lucide-react";
 import GuitarChord from "./GuitarChord";
 import PianoChord from "./PianoChord";
 import LyricLineEditor from "./LyricLineEditor";
-import { Section } from "@/types";
+import { exportToPdf, exportToWord } from "@/lib/exportSong";
 
 const SECTION_COLORS: Record<string, string> = {
   intro:      "#38bdf8",
@@ -24,6 +25,9 @@ export default function SongViewer() {
     setTranspose, setNotation, setInstrument, setChordModal, updateSong,
   } = useSongsStore();
 
+  const [showExport, setShowExport] = useState(false);
+  const [exporting, setExporting] = useState<"pdf" | "word" | null>(null);
+
   const rawSong = songs.find((s) => s.id === activeSongId);
   if (!rawSong) return (
     <div className="flex-1 flex items-center justify-center text-sm" style={{ color: "var(--c-text4)" }}>
@@ -32,6 +36,17 @@ export default function SongViewer() {
   );
 
   const song = getTransposedSong(rawSong, transposeSemitones);
+
+  async function handleExport(format: "pdf" | "word") {
+    setExporting(format);
+    setShowExport(false);
+    try {
+      if (format === "pdf") await exportToPdf(rawSong!, transposeSemitones, notation);
+      else await exportToWord(rawSong!, transposeSemitones, notation);
+    } finally {
+      setExporting(null);
+    }
+  }
   const allChords = Array.from(
     new Set(song.sections.flatMap((s) => s.lines.flatMap((l) => l.chords.map((c) => c.chord))))
   );
@@ -129,6 +144,59 @@ export default function SongViewer() {
             >
               Diagramas
             </button>
+
+            {/* Export */}
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => setShowExport((v) => !v)}
+                style={{
+                  ...btnBase,
+                  background: "var(--c-elevated)",
+                  color: exporting ? "var(--c-indigo2)" : "var(--c-text2)",
+                  display: "flex", alignItems: "center", gap: 5,
+                }}
+              >
+                <Download size={13} />
+                {exporting ? "Descargando…" : "Descargar"}
+              </button>
+              {showExport && (
+                <div style={{
+                  position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 20,
+                  backgroundColor: "var(--c-surface)",
+                  border: "1px solid var(--c-border)",
+                  borderRadius: 10,
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                  overflow: "hidden",
+                  minWidth: 160,
+                }}>
+                  <button
+                    onClick={() => handleExport("pdf")}
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", gap: 10,
+                      padding: "10px 14px", background: "none", border: "none",
+                      cursor: "pointer", color: "var(--c-text)",
+                      fontSize: 13, textAlign: "left",
+                      borderBottom: "1px solid var(--c-border)",
+                    }}
+                  >
+                    <FileType2 size={15} style={{ color: "#ef4444" }} />
+                    Descargar PDF
+                  </button>
+                  <button
+                    onClick={() => handleExport("word")}
+                    style={{
+                      width: "100%", display: "flex", alignItems: "center", gap: 10,
+                      padding: "10px 14px", background: "none", border: "none",
+                      cursor: "pointer", color: "var(--c-text)",
+                      fontSize: 13, textAlign: "left",
+                    }}
+                  >
+                    <FileText size={15} style={{ color: "#2563eb" }} />
+                    Descargar Word
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

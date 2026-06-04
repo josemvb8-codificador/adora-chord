@@ -1,0 +1,271 @@
+import { Song } from "@/types";
+import { chordToNotation } from "@/lib/chords";
+import { getTransposedSong } from "@/store/songs";
+
+const SECTION_LABELS: Record<string, string> = {
+  intro: "Intro", verse: "Verso", prechorus: "Pre-Coro", chorus: "Coro",
+  bridge: "Puente", interlude: "Interludio", solo: "Solo", outro: "Final",
+};
+
+// ─── PDF export ─────────────────────────────────────────────────────────────
+
+export async function exportToPdf(song: Song, semitones: number, notation: "american" | "solfege") {
+  const { jsPDF } = await import("jspdf");
+  const transposed = getTransposedSong(song, semitones);
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+  const W = 210;
+  const MARGIN = 18;
+  const COL = W - MARGIN * 2;
+  let y = MARGIN;
+
+  const pageH = 297;
+  function checkPage(needed: number) {
+    if (y + needed > pageH - MARGIN) {
+      doc.addPage();
+      y = MARGIN;
+    }
+  }
+
+  // ── Header ──
+  doc.setFillColor(99, 102, 241);
+  doc.rect(0, 0, W, 12, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255);
+  doc.text("Adora", MARGIN, 8);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("adorachords.app", W - MARGIN, 8, { align: "right" });
+
+  y = 22;
+
+  // ── Title ──
+  doc.setTextColor(15, 23, 42);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(20);
+  doc.text(song.title, MARGIN, y);
+  y += 7;
+
+  if (song.artist) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(100, 116, 139);
+    doc.text(song.artist, MARGIN, y);
+    y += 5;
+  }
+
+  // ── Meta pills ──
+  y += 2;
+  const meta = [
+    `Tonalidad: ${transposed.key}${song.mode === "minor" ? "m" : ""}`,
+    song.capo > 0 ? `Cejilla: ${song.capo}` : null,
+    `${song.tempo} BPM`,
+    song.timeSignature,
+    semitones !== 0 ? `Transposición: ${semitones > 0 ? "+" : ""}${semitones}` : null,
+  ].filter(Boolean) as string[];
+
+  doc.setFontSize(8);
+  let mx = MARGIN;
+  for (const m of meta) {
+    const tw = doc.getTextWidth(m) + 6;
+    doc.setFillColor(241, 245, 249);
+    doc.setDrawColor(203, 213, 225);
+    doc.roundedRect(mx, y - 3.5, tw, 5.5, 1.5, 1.5, "FD");
+    doc.setTextColor(71, 85, 105);
+    doc.text(m, mx + 3, y);
+    mx += tw + 3;
+  }
+  y += 8;
+
+  // ── Divider ──
+  doc.setDrawColor(226, 232, 240);
+  doc.line(MARGIN, y, W - MARGIN, y);
+  y += 6;
+
+  // ── Sections ──
+  const SECTION_COLORS: Record<string, [number, number, number]> = {
+    intro: [56, 189, 248], verse: [148, 163, 184], prechorus: [251, 191, 36],
+    chorus: [99, 102, 241], bridge: [251, 113, 133], outro: [148, 163, 184],
+    solo: [52, 211, 153], interlude: [192, 132, 252],
+  };
+
+  for (const section of transposed.sections) {
+    checkPage(16);
+
+    // Section label
+    const [r, g, b] = SECTION_COLORS[section.type] || [148, 163, 184];
+    doc.setFillColor(r, g, b);
+    doc.rect(MARGIN, y - 3, 2.5, 5, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(r, g, b);
+    doc.text((SECTION_LABELS[section.type] || section.name).toUpperCase(), MARGIN + 5, y);
+    y += 6;
+
+    for (const line of section.lines) {
+      checkPage(12);
+
+      // Chord line
+      if (line.chords.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(99, 102, 241);
+        const chordStr = line.chords
+          .map((c) => chordToNotation(c.chord, notation))
+          .join("   ");
+        doc.text(chordStr, MARGIN, y);
+        y += 4.5;
+      }
+
+      // Lyrics line
+      if (line.lyrics.trim()) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(15, 23, 42);
+        const wrapped = doc.splitTextToSize(line.lyrics, COL);
+        doc.text(wrapped, MARGIN, y);
+        y += wrapped.length * 5;
+      }
+    }
+
+    y += 4; // gap between sections
+  }
+
+  // ── Footer ──
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Adora — ${song.title}`, MARGIN, pageH - 8);
+    doc.text(`Página ${i} / ${totalPages}`, W - MARGIN, pageH - 8, { align: "right" });
+  }
+
+  doc.save(`${song.title.replace(/\s+/g, "_")}.pdf`);
+}
+
+// ─── Word export ─────────────────────────────────────────────────────────────
+
+export async function exportToWord(song: Song, semitones: number, notation: "american" | "solfege") {
+  const {
+    Document, Packer, Paragraph, TextRun, HeadingLevel,
+    AlignmentType, BorderStyle, ShadingType,
+  } = await import("docx");
+
+  const transposed = getTransposedSong(song, semitones);
+
+  const children: any[] = [];
+
+  // Title
+  children.push(
+    new Paragraph({
+      children: [new TextRun({ text: song.title, bold: true, size: 40, color: "0f172a" })],
+      spacing: { after: 80 },
+    })
+  );
+
+  if (song.artist) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: song.artist, size: 22, color: "64748b" })],
+        spacing: { after: 60 },
+      })
+    );
+  }
+
+  // Meta
+  const metaParts = [
+    `Tonalidad: ${transposed.key}${song.mode === "minor" ? "m" : ""}`,
+    song.capo > 0 ? `Cejilla: ${song.capo}` : null,
+    `${song.tempo} BPM`,
+    semitones !== 0 ? `Transposición: ${semitones > 0 ? "+" : ""}${semitones}` : null,
+  ].filter(Boolean) as string[];
+
+  children.push(
+    new Paragraph({
+      children: [new TextRun({ text: metaParts.join("  •  "), size: 18, color: "475569", italics: true })],
+      spacing: { after: 200 },
+    })
+  );
+
+  // Sections
+  for (const section of transposed.sections) {
+    // Section header
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: (SECTION_LABELS[section.type] || section.name).toUpperCase(),
+            bold: true,
+            size: 18,
+            color: "6366f1",
+            allCaps: true,
+          }),
+        ],
+        spacing: { before: 240, after: 80 },
+        border: {
+          bottom: { style: BorderStyle.SINGLE, size: 4, color: "e2e8f0" },
+        },
+      })
+    );
+
+    for (const line of section.lines) {
+      // Chords
+      if (line.chords.length > 0) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: line.chords.map((c) => chordToNotation(c.chord, notation)).join("   "),
+                bold: true,
+                size: 20,
+                color: "6366f1",
+                font: "Courier New",
+              }),
+            ],
+            spacing: { after: 20 },
+          })
+        );
+      }
+
+      // Lyrics
+      if (line.lyrics.trim()) {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: line.lyrics, size: 22, color: "0f172a" })],
+            spacing: { after: 60 },
+          })
+        );
+      }
+    }
+  }
+
+  // Footer note
+  children.push(
+    new Paragraph({
+      children: [new TextRun({ text: `Generado con Adora`, size: 16, color: "94a3b8", italics: true })],
+      spacing: { before: 400 },
+    })
+  );
+
+  const doc = new Document({
+    sections: [{ children }],
+    styles: {
+      default: {
+        document: {
+          run: { font: "Calibri", size: 22 },
+        },
+      },
+    },
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${song.title.replace(/\s+/g, "_")}.docx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
