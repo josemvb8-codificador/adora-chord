@@ -12,24 +12,25 @@ export const SOLFEGE_MAP: Record<string, string> = {
 // Keys that prefer flats
 const FLAT_KEYS = new Set(["F", "Bb", "Eb", "Ab", "Db", "Gb", "Dm", "Gm", "Cm", "Fm", "Bbm", "Ebm"]);
 
-// Worship music prefers flat enharmonics over sharps (Bb, Eb, Ab vs A#, D#, G#)
-const PREFER_FLAT = new Set(["C#", "D#", "F#", "G#", "A#"]);
-
-function bestNote(note: string): string {
-  const pc = Note.pitchClass(note);
-  if (pc && PREFER_FLAT.has(pc)) return Note.enharmonic(note) || note;
-  return note;
-}
-
 export function transposeChord(chord: string, semitones: number): string {
   if (!chord || chord === "%") return chord;
+  if (semitones === 0) return chord;
   const parsed = Chord.get(chord);
   if (!parsed.tonic) return chord;
   const newTonic = Note.transpose(parsed.tonic, Interval.fromSemitones(semitones));
-  const simplified = bestNote(Note.simplify(newTonic) || newTonic);
-  // Extract suffix from original string (avoids tonal aliases)
+  const simplified = Note.simplify(newTonic) || newTonic;
   const suffix = chord.slice(parsed.tonic.length);
-  return simplified + suffix;
+
+  // Up → sharps (#);  Down → flats (b)
+  const goingUp = semitones > 0;
+  let tonic = simplified;
+  if (goingUp && tonic.includes("b")) {
+    tonic = Note.enharmonic(tonic) || tonic; // Db→C#, Eb→D#, Gb→F#, Ab→G#, Bb→A#
+  } else if (!goingUp && tonic.includes("#")) {
+    tonic = Note.enharmonic(tonic) || tonic; // C#→Db, D#→Eb, F#→Gb, G#→Ab, A#→Bb
+  }
+
+  return tonic + suffix;
 }
 
 export function chordToNotation(chord: string, notation: "american" | "solfege"): string {
