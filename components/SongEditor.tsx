@@ -20,6 +20,8 @@ export default function SongEditor({ onClose, editId }: Props) {
   const { addSong, updateSong, songs } = useSongsStore();
   const { user } = useAuthStore();
   const existing = editId ? songs.find((s) => s.id === editId) : undefined;
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const [title, setTitle] = useState(existing?.title || "");
   const [artist, setArtist] = useState(existing?.artist || "");
@@ -87,8 +89,10 @@ export default function SongEditor({ onClose, editId }: Props) {
       .join("\n");
   }
 
-  function save() {
+  async function save() {
     if (!title.trim()) return;
+    setSaveError("");
+    setSaving(true);
     const songData: Omit<Song, "id" | "createdAt" | "updatedAt"> = {
       title: title.trim(),
       artist: artist.trim(),
@@ -103,12 +107,18 @@ export default function SongEditor({ onClose, editId }: Props) {
       showPianoTab: false,
       sections,
     };
+    try {
     if (editId) {
-      updateSong(editId, songData, user?.id);
+      await updateSong(editId, songData, user?.id);
     } else {
-      addSong({ ...songData, id: uid(), createdAt: Date.now(), updatedAt: Date.now() }, user?.id ?? "");
+      await addSong({ ...songData, id: uid(), createdAt: Date.now(), updatedAt: Date.now() }, user?.id ?? "");
     }
-    onClose();
+      onClose();
+    } catch (e: any) {
+      setSaveError(e.message || "No se pudo guardar. Verifica tu conexión.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -216,13 +226,20 @@ export default function SongEditor({ onClose, editId }: Props) {
           </button>
         </div>
 
+        {/* Error */}
+        {saveError && (
+          <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, marginBottom: 12, color: "#f87171", fontSize: 13 }}>
+            {saveError}
+          </div>
+        )}
+
         {/* Save */}
         <button
           onClick={save}
-          disabled={!title.trim()}
+          disabled={!title.trim() || saving}
           className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-3 transition-colors"
         >
-          {editId ? "Guardar cambios" : "Crear canción"}
+          {saving ? "Guardando…" : editId ? "Guardar cambios" : "Crear canción"}
         </button>
       </div>
     </div>

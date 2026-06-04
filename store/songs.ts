@@ -113,7 +113,11 @@ export const useSongsStore = create<SongsState>()(
           .insert(toDb(song, userId))
           .select()
           .single();
-        if (data && !error) {
+        if (error) {
+          console.error("Error saving song:", error.message);
+          throw new Error(error.message);
+        }
+        if (data) {
           set((s) => ({ songs: [fromDb(data), ...s.songs], activeSongId: data.id }));
         }
       },

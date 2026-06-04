@@ -65,8 +65,11 @@ export default function ImportSong({ onClose }: Props) {
 
   async function extractPdfText(file: File): Promise<string> {
     const pdfjsLib = await import("pdfjs-dist");
-    // Use local worker served from /public to avoid CDN failures
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+    // Use absolute URL so it works both locally and on Vercel
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/pdf.worker.min.mjs`
+        : "/pdf.worker.min.mjs";
 
     const buffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({ data: buffer });
