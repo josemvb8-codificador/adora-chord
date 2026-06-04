@@ -38,14 +38,10 @@ export default function ImportSong({ onClose }: Props) {
     setError("");
     try {
       let text = "";
-      if (file.name.endsWith(".pdf")) {
-        text = await extractPdfText(file);
-      } else if (file.name.match(/\.docx?$/i)) {
-        text = await extractWordText(file);
-      } else if (file.name.endsWith(".txt")) {
-        text = await file.text();
+      if (file.name.match(/\.(pdf|docx?|txt)$/i)) {
+        text = await extractFileText(file);
       } else {
-        throw new Error("Formato no soportado. Usa PDF, Word o TXT.");
+        throw new Error("Formato no soportado. Usa PDF, Word (.docx) o TXT.");
       }
       const result = parseSongText(text, file.name);
       setParsed(result);
@@ -63,57 +59,24 @@ export default function ImportSong({ onClose }: Props) {
     }
   }
 
-  async function extractPdfText(file: File): Promise<string> {
-    const pdfjsLib = await import("pdfjs-dist");
-    // Use absolute URL so it works both locally and on Vercel
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/pdf.worker.min.mjs`
-        : "/pdf.worker.min.mjs";
+  async function extractFileText(file: File): Promise<string> {
+    const form = new FormData();
+    form.append("file", file);
 
-    const buffer = await file.arrayBuffer();
-    const loadingTask = pdfjsLib.getDocument({ data: buffer });
-
-    // Timeout after 15s so it never hangs indefinitely
-    const pdf = await Promise.race([
-      loadingTask.promise,
+    const res = await Promise.race([
+      fetch("/api/parse-pdf", { method: "POST", body: form }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => { loadingTask.destroy(); reject(new Error("El PDF tardó demasiado. Intenta con un archivo más pequeño o usa el área de texto.")); }, 15000)
+        setTimeout(() => reject(new Error("El archivo tardó demasiado. Intenta con un archivo más pequeño o pega el texto directamente.")), 20000)
       ),
     ]);
 
-    let fullText = "";
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-
-      // Group text items by Y coordinate to reconstruct lines
-      const byY: Map<number, { x: number; str: string }[]> = new Map();
-      for (const item of content.items) {
-        if ("str" in item && (item as any).str.trim()) {
-          const y = Math.round((item as any).transform[5]);
-          const x = Math.round((item as any).transform[4]);
-          if (!byY.has(y)) byY.set(y, []);
-          byY.get(y)!.push({ x, str: (item as any).str });
-        }
-      }
-
-      // Sort Y descending (top of page first), X ascending within each line
-      const sortedYs = [...byY.keys()].sort((a, b) => b - a);
-      for (const y of sortedYs) {
-        const items = byY.get(y)!.sort((a, b) => a.x - b.x);
-        fullText += items.map((i) => i.str).join(" ").trim() + "\n";
-      }
-      fullText += "\n";
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Error desconocido" }));
+      throw new Error(err.error || "Error procesando el archivo");
     }
-    return fullText;
-  }
 
-  async function extractWordText(file: File): Promise<string> {
-    const mammoth = await import("mammoth");
-    const buffer = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer: buffer });
-    return result.value;
+    const { text } = await res.json();
+    return text;
   }
 
   function updateSection(sid: string, updates: Partial<Section>) {
