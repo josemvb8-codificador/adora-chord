@@ -1,26 +1,62 @@
 @import "tailwindcss";
 
+/* ─── Design tokens ─── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --c-bg:        #09090b;
+  --c-surface:   #18181b;
+  --c-elevated:  #27272a;
+  --c-border:    #3f3f46;
+  --c-border2:   #52525b;
+  --c-text:      #f4f4f5;
+  --c-text2:     #a1a1aa;
+  --c-text3:     #71717a;
+  --c-text4:     #52525b;
+  --c-indigo:    #6366f1;
+  --c-indigo2:   #818cf8;
+  --c-indigo-bg: rgba(99,102,241,0.15);
+  --c-input:     #27272a;
+  --c-input-b:   #3f3f46;
+  --c-hover:     #27272a;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+[data-theme="light"] {
+  --c-bg:        #f8fafc;
+  --c-surface:   #ffffff;
+  --c-elevated:  #f1f5f9;
+  --c-border:    #e2e8f0;
+  --c-border2:   #cbd5e1;
+  --c-text:      #0f172a;
+  --c-text2:     #475569;
+  --c-text3:     #64748b;
+  --c-text4:     #94a3b8;
+  --c-indigo-bg: rgba(99,102,241,0.08);
+  --c-input:     #f1f5f9;
+  --c-input-b:   #cbd5e1;
+  --c-hover:     #f1f5f9;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ─── Base ─── */
+html, body { height: 100%; }
+* { box-sizing: border-box; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--c-bg);
+  color: var(--c-text);
+  transition: background-color 0.18s ease, color 0.18s ease;
+  font-family: var(--font-geist-sans, system-ui, sans-serif);
 }
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 99px; }
+
+/* ─── Semantic utility classes ─── */
+.bg-base      { background-color: var(--c-bg) !important; }
+.bg-surface   { background-color: var(--c-surface) !important; }
+.bg-elevated  { background-color: var(--c-elevated) !important; }
+.border-base  { border-color: var(--c-border) !important; }
+.text-primary { color: var(--c-text) !important; }
+.text-secondary { color: var(--c-text2) !important; }
+.text-muted   { color: var(--c-text3) !important; }
+.text-faint   { color: var(--c-text4) !important; }

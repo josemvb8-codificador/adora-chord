@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Allow tonal ESM modules
+  transpilePackages: ["tonal", "@tonaljs/chord-detect"],
 };
 
 export default nextConfig;
