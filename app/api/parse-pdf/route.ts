@@ -14,12 +14,12 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    if (file.name.endsWith(".pdf")) {
-      // Dynamically import pdf-parse (Node.js only)
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const pdfParse = require("pdf-parse");
-      const data = await pdfParse(buffer);
-      return NextResponse.json({ text: data.text });
+    if (file.name.toLowerCase().endsWith(".pdf")) {
+      const { extractText } = await import("unpdf");
+      const { text } = await extractText(new Uint8Array(buffer), { mergePages: false });
+      // text is an array of strings (one per page) when mergePages is false
+      const fullText = Array.isArray(text) ? text.join("\n\n") : String(text);
+      return NextResponse.json({ text: fullText });
     }
 
     if (file.name.match(/\.docx?$/i)) {
@@ -28,13 +28,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ text: result.value });
     }
 
-    if (file.name.endsWith(".txt")) {
+    if (file.name.toLowerCase().endsWith(".txt")) {
       return NextResponse.json({ text: buffer.toString("utf-8") });
     }
 
-    return NextResponse.json({ error: "Formato no soportado" }, { status: 400 });
+    return NextResponse.json({ error: "Formato no soportado. Usa PDF, Word o TXT." }, { status: 400 });
   } catch (err: any) {
     console.error("parse-pdf error:", err);
-    return NextResponse.json({ error: err.message || "Error procesando archivo" }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Error procesando el archivo" }, { status: 500 });
   }
 }
