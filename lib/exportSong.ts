@@ -105,28 +105,42 @@ export async function exportToPdf(song: Song, semitones: number, notation: "amer
     y += 6;
 
     for (const line of section.lines) {
-      checkPage(12);
+      checkPage(14);
 
-      // Chord line
+      // Build chord row respecting pos (character offset above the lyric)
       if (line.chords.length > 0) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(9);
         doc.setTextColor(99, 102, 241);
-        const chordStr = line.chords
-          .map((c) => chordToNotation(c.chord, notation))
-          .join("   ");
-        doc.text(chordStr, MARGIN, y);
-        y += 4.5;
+
+        const CHAR_PX = 1.85; // mm per character at font size 10
+        const hasPos = line.chords.some((c) => c.pos !== undefined && c.pos > 0);
+
+        if (hasPos && line.lyrics.trim()) {
+          // Place each chord at its horizontal position above the lyric
+          const sorted = [...line.chords].sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
+          for (const cp of sorted) {
+            const x = MARGIN + (cp.pos ?? 0) * CHAR_PX;
+            doc.text(chordToNotation(cp.chord, notation), Math.min(x, MARGIN + COL - 10), y);
+          }
+        } else {
+          // No position data — fall back to joined string
+          const chordStr = line.chords.map((c) => chordToNotation(c.chord, notation)).join("   ");
+          doc.text(chordStr, MARGIN, y);
+        }
+        y += 5;
       }
 
       // Lyrics line
       if (line.lyrics.trim()) {
-        doc.setFont("helvetica", "normal");
+        doc.setFont("courier", "normal");
         doc.setFontSize(10);
         doc.setTextColor(15, 23, 42);
         const wrapped = doc.splitTextToSize(line.lyrics, COL);
         doc.text(wrapped, MARGIN, y);
-        y += wrapped.length * 5;
+        y += wrapped.length * 5.2;
+      } else if (line.chords.length === 0) {
+        y += 2; // spacing for empty lines
       }
     }
 
@@ -212,13 +226,28 @@ export async function exportToWord(song: Song, semitones: number, notation: "ame
     );
 
     for (const line of section.lines) {
-      // Chords
+      // Chords — build string respecting pos if available
       if (line.chords.length > 0) {
+        const sorted = [...line.chords].sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
+        const hasPos = sorted.some((c) => c.pos !== undefined && c.pos > 0);
+        let chordText = "";
+        if (hasPos && line.lyrics.trim()) {
+          // Space-pad each chord to its character position
+          let cursor = 0;
+          for (const cp of sorted) {
+            const pos = cp.pos ?? 0;
+            const pad = Math.max(0, pos - cursor);
+            chordText += " ".repeat(pad) + chordToNotation(cp.chord, notation);
+            cursor = pos + chordToNotation(cp.chord, notation).length;
+          }
+        } else {
+          chordText = sorted.map((c) => chordToNotation(c.chord, notation)).join("   ");
+        }
         children.push(
           new Paragraph({
             children: [
               new TextRun({
-                text: line.chords.map((c) => chordToNotation(c.chord, notation)).join("   "),
+                text: chordText,
                 bold: true,
                 size: 20,
                 color: "6366f1",

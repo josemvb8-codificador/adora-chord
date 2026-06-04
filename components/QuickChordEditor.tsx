@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useSongsStore } from "@/store/songs";
+import { useAuthStore } from "@/store/auth";
 import { Section, ChordPosition } from "@/types";
 import { Check, X } from "lucide-react";
 import LyricLineEditor from "./LyricLineEditor";
@@ -20,9 +21,11 @@ const SECTION_COLORS: Record<string, string> = {
 
 export default function QuickChordEditor({ onClose }: Props) {
   const { songs, activeSongId, updateSong, notation } = useSongsStore();
+  const { user } = useAuthStore();
   const song = songs.find((s) => s.id === activeSongId);
   const [sections, setSections] = useState<Section[]>(song?.sections || []);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   if (!song) return null;
 
@@ -36,10 +39,11 @@ export default function QuickChordEditor({ onClose }: Props) {
     }));
   }
 
-  function saveAll() {
-    updateSong(song!.id, { sections });
+  async function saveAll() {
+    setSaving(true);
+    await updateSong(song!.id, { sections }, user?.id);
     setSaved(true);
-    setTimeout(onClose, 700);
+    setTimeout(onClose, 600);
   }
 
   return (
@@ -71,14 +75,14 @@ export default function QuickChordEditor({ onClose }: Props) {
               background: "var(--c-elevated)", border: "none", borderRadius: 8,
               color: "var(--c-text2)", padding: "6px 14px", fontSize: 13, cursor: "pointer",
             }}>Cancelar</button>
-            <button onClick={saveAll} style={{
+            <button onClick={saveAll} disabled={saving} style={{
               background: saved ? "#059669" : "var(--c-indigo)",
               border: "none", borderRadius: 8,
               color: "#fff", padding: "6px 14px", fontSize: 13,
-              fontWeight: 600, cursor: "pointer",
+              fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
               transition: "background 0.2s",
             }}>
-              {saved ? "✓ Guardado" : "Guardar"}
+              {saved ? "✓ Guardado" : saving ? "Guardando…" : "Guardar"}
             </button>
           </div>
         </div>
