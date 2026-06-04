@@ -53,12 +53,21 @@ export function normalizeSolfege(chord: string): string {
   return american + suffix;
 }
 
-// Lines to skip — ministry headers, metadata, etc.
-const SKIP_PREFIXES = /^(autor|author|compositor|arreglos?|tempo|intro drums|todos|www\.|http|©|copyright|\d{3,}-)/i;
+// Lines with author/composer — extract name after the colon
+const AUTHOR_PREFIX = /^(autor|author|compositor|arregl[ao]|letra|música|musica)[:\s]+/i;
+
+// Lines to skip entirely (not title, not lyric, not chord)
+const SKIP_PREFIXES = /^(tempo|bpm|intro drums|compás|todos|www\.|http|©|copyright|\(c\)|key:|tono:)/i;
 
 export function isMetadataLine(line: string): boolean {
+  return SKIP_PREFIXES.test(line.trim());
+}
+
+export function extractAuthor(line: string): string | null {
   const t = line.trim();
-  return SKIP_PREFIXES.test(t);
+  const m = t.match(AUTHOR_PREFIX);
+  if (!m) return null;
+  return t.slice(m[0].length).trim();
 }
 
 export function isChordLine(line: string): boolean {
@@ -116,10 +125,11 @@ function cleanText(text: string): string {
     .replace(/\n{3,}/g, "\n\n");
 }
 
-// Lines that look like the ministry/organization name (all caps, no chords)
+// Lines that look like the ministry/organization name (all caps, no chords, no leading number)
 function isOrgHeader(line: string): boolean {
   const t = line.trim();
-  return t === t.toUpperCase() && t.length > 10 && !isChordLine(t) && /[AEIOU]{1}/i.test(t);
+  if (/^\d/.test(t)) return false; // "006- SONG TITLE" is a title, not an org header
+  return t === t.toUpperCase() && t.length > 15 && !isChordLine(t) && /[AEIOU]/i.test(t);
 }
 
 export interface ParsedSong {
@@ -134,20 +144,56 @@ export function parseSongText(rawText: string, filename = ""): ParsedSong {
   const text = cleanText(rawText);
   const lines = text.split("\n");
 
-  // ── Smart title/artist detection ──
-  // Skip: all-caps org headers, metadata lines, blank lines
+  // ── Header detection: title, artist, skip org/metadata ──
   let titleLine = "";
   let artistLine = "";
   let startIndex = 0;
 
-  const candidates = lines
-    .map((l, i) => ({ l: l.trim(), i }))
-    .filter(({ l }) => l && !isChordLine(l) && !isSectionHeader(l) && !isMetadataLine(l));
+  for (let i = 0; i < Math.min(lines.length, 15); i++) {
+    const l = lines[i].trim();
+    if (!l) continue;
 
-  for (const { l, i } of candidates.slice(0, 8)) {
-    if (isOrgHeader(l)) { startIndex = Math.max(startIndex, i + 1); continue; }
-    if (!titleLine) { titleLine = l; startIndex = i + 1; }
-    else if (!artistLine && !isChordLine(l)) { artistLine = l; startIndex = i + 1; break; }
+    // Once we hit a chord line or section header, stop header scanning
+    if (isChordLine(l) || isSectionHeader(l)) {
+      startIndex = i;
+      break;
+    }
+
+    // Skip tempo/copyright metadata entirely
+    if (isMetadataLine(l)) {
+      startIndex = i + 1;
+      continue;
+    }
+
+    // Extract author from "Autor: Vicente Mendoza" style lines
+    const author = extractAuthor(l);
+    if (author) {
+      if (!artistLine) artistLine = author;
+      startIndex = i + 1;
+      continue;
+    }
+
+    // Skip all-caps org/ministry headers (e.g. "MINISTERIO EVANGELÍSTICO...")
+    if (isOrgHeader(l)) {
+      startIndex = i + 1;
+      continue;
+    }
+
+    // First real content line = title
+    if (!titleLine) {
+      titleLine = l;
+      startIndex = i + 1;
+    }
+    // Second non-empty, non-metadata, non-chord line could be an artist
+    // but only if it's short and doesn't look like a lyric
+    else if (!artistLine && l.length < 60 && !l.includes("¿") && !l.includes("?")) {
+      artistLine = l;
+      startIndex = i + 1;
+    } else {
+      // Reached actual song content
+      startIndex = i;
+      break;
+    }
   }
 
   const sections: Section[] = [];
