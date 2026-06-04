@@ -1,24 +1,9 @@
 import { Section, SongLine, ChordPosition } from "@/types";
 
-// ─── Chord detection ────────────────────────────────────────────────────────
+// ─── Solfège roots (ordenados de más largo a más corto para evitar match parcial) ───
+const SOLFEGE_ROOTS_ORDERED = ["sol", "do", "re", "mi", "fa", "la", "si"];
 
-// American notation: G, Am, F#m7, Bb/D, Dsus4, Cadd9, G7, Cmaj7, etc.
-const CHORD_AMERICAN = /^[A-G][b#]?(maj|min|m|M|dim|aug|sus|add)?[2-9]?(\/[A-G][b#]?)?$/;
-
-// Solfège notation (Spanish/Latin American): Do, Re, Mi, Fa, Sol, La, Si
-// + variations: Dom, Rem, Solm, Lam, etc. + modifiers
-const SOLFEGE_ROOTS = "(?:Do|Re|Mi|Fa|Sol|La|Si)";
-const CHORD_SOLFEGE = new RegExp(
-  `^${SOLFEGE_ROOTS}[b#]?(maj|min|m|M|dim|aug|sus|add)?[2-9]?(\\/${SOLFEGE_ROOTS}[b#]?)?$`,
-  "i"
-);
-
-export function isChord(word: string): boolean {
-  const w = word.trim();
-  return CHORD_AMERICAN.test(w) || CHORD_SOLFEGE.test(w);
-}
-
-// Solfège → American mapping for display/transposition
+// Solfège → American
 export const SOLFEGE_TO_AMERICAN: Record<string, string> = {
   do: "C", "do#": "C#", dob: "Cb",
   re: "D", "re#": "D#", reb: "Db",
@@ -29,16 +14,51 @@ export const SOLFEGE_TO_AMERICAN: Record<string, string> = {
   si: "B", sib: "Bb",
 };
 
-export function normalizeSolfege(chord: string): string {
-  // Convert solfège chord to American notation if needed
-  const lower = chord.toLowerCase();
-  for (const [sol, amer] of Object.entries(SOLFEGE_TO_AMERICAN)) {
-    if (lower.startsWith(sol)) {
-      const suffix = chord.slice(sol.length);
-      return amer + suffix;
+function parseSolfegeRoot(word: string): { root: string; suffix: string } | null {
+  const lower = word.toLowerCase();
+  for (const root of SOLFEGE_ROOTS_ORDERED) {
+    if (lower.startsWith(root)) {
+      const suffix = word.slice(root.length); // preserve original case for suffix
+      return { root, suffix };
     }
   }
-  return chord;
+  return null;
+}
+
+// American notation: G, Am, F#m7, Bb, Cmaj7, D/F#, etc.
+const CHORD_AMERICAN = /^[A-G][b#]?(maj|min|m|M|dim|aug|sus|add)?[2-9]?(\/[A-G][b#]?)?$/;
+// Solfège suffix pattern (after the root)
+const SOLFEGE_SUFFIX = /^[b#]?(maj|min|m|M|dim|aug|sus|add)?[2-9]?(\/[a-zA-Z]+)?$/;
+
+export function isChord(word: string): boolean {
+  const w = word.trim();
+  if (!w) return false;
+  if (CHORD_AMERICAN.test(w)) return true;
+  // Solfège check (case-insensitive)
+  const parsed = parseSolfegeRoot(w);
+  if (!parsed) return false;
+  return SOLFEGE_SUFFIX.test(parsed.suffix);
+}
+
+export function normalizeSolfege(chord: string): string {
+  const w = chord.trim();
+  if (CHORD_AMERICAN.test(w)) return w; // already American
+  const parsed = parseSolfegeRoot(w);
+  if (!parsed) return w;
+  const american = SOLFEGE_TO_AMERICAN[parsed.root + parsed.suffix.toLowerCase().replace(/m$/, "")]
+    || SOLFEGE_TO_AMERICAN[parsed.root];
+  if (!american) return w;
+  // Reconstruct: keep suffix modifiers (m, maj7, sus4, etc.)
+  const suffix = parsed.suffix;
+  return american + suffix;
+}
+
+// Lines to skip — ministry headers, metadata, etc.
+const SKIP_PREFIXES = /^(autor|author|compositor|arreglos?|tempo|intro drums|todos|www\.|http|©|copyright|\d{3,}-)/i;
+
+export function isMetadataLine(line: string): boolean {
+  const t = line.trim();
+  return SKIP_PREFIXES.test(t);
 }
 
 export function isChordLine(line: string): boolean {
@@ -47,9 +67,9 @@ export function isChordLine(line: string): boolean {
   const tokens = trimmed.split(/\s+/).filter(Boolean);
   if (!tokens.length) return false;
   const chordCount = tokens.filter(isChord).length;
-  // Reject if there's a long non-chord word (likely a lyric line)
-  const hasLongWord = tokens.some((t) => t.length > 8 && !isChord(t));
-  return chordCount >= 1 && chordCount / tokens.length >= 0.55 && !hasLongWord;
+  // A chord line: most tokens are chords, no very long non-chord word
+  const hasLongLyricWord = tokens.some((t) => t.length > 9 && !isChord(t));
+  return chordCount >= 1 && chordCount / tokens.length >= 0.55 && !hasLongLyricWord;
 }
 
 export function isSectionHeader(line: string): boolean {
@@ -71,10 +91,6 @@ export function parseSectionType(line: string): { type: Section["type"]; name: s
   return { type: "verse", name: line.trim() };
 }
 
-/**
- * Parse chord tokens from a chord line, preserving their column positions
- * so they can be displayed above the correct syllable in the lyric line.
- */
 function parseChordsWithPositions(chordLine: string, lyricLine: string): ChordPosition[] {
   const result: ChordPosition[] = [];
   const re = /(\S+)/g;
@@ -84,7 +100,6 @@ function parseChordsWithPositions(chordLine: string, lyricLine: string): ChordPo
     if (!isChord(token)) continue;
     const col = match.index;
     const pos = lyricLine.length > 0 ? Math.min(col, Math.max(0, lyricLine.length - 1)) : col;
-    // Normalize solfège to American for storage
     result.push({ chord: normalizeSolfege(token), pos });
   }
   return result;
@@ -96,10 +111,15 @@ function cleanText(text: string): string {
   return text
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
-    .replace(/\f/g, "\n\n")      // form feed → blank line
-    .replace(/[ \t]+$/gm, "")    // trailing spaces
-    .replace(/\n{3,}/g, "\n\n"); // max 2 consecutive blank lines
-  // Note: we keep // in text since it can be a lyric repeat marker
+    .replace(/\f/g, "\n\n")
+    .replace(/[ \t]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
+// Lines that look like the ministry/organization name (all caps, no chords)
+function isOrgHeader(line: string): boolean {
+  const t = line.trim();
+  return t === t.toUpperCase() && t.length > 10 && !isChordLine(t) && /[AEIOU]{1}/i.test(t);
 }
 
 export interface ParsedSong {
@@ -114,19 +134,20 @@ export function parseSongText(rawText: string, filename = ""): ParsedSong {
   const text = cleanText(rawText);
   const lines = text.split("\n");
 
-  // ── Title / artist detection ──
+  // ── Smart title/artist detection ──
+  // Skip: all-caps org headers, metadata lines, blank lines
   let titleLine = "";
   let artistLine = "";
   let startIndex = 0;
 
-  const nonEmpty = lines.map((l, i) => ({ l, i })).filter(({ l }) => l.trim());
-  for (let n = 0; n < Math.min(4, nonEmpty.length); n++) {
-    const { l, i } = nonEmpty[n];
-    if (!isSectionHeader(l) && !isChordLine(l)) {
-      if (!titleLine) { titleLine = l.trim(); startIndex = i + 1; }
-      else if (!artistLine && n <= 2) { artistLine = l.trim(); startIndex = i + 1; }
-      else break;
-    } else break;
+  const candidates = lines
+    .map((l, i) => ({ l: l.trim(), i }))
+    .filter(({ l }) => l && !isChordLine(l) && !isSectionHeader(l) && !isMetadataLine(l));
+
+  for (const { l, i } of candidates.slice(0, 8)) {
+    if (isOrgHeader(l)) { startIndex = Math.max(startIndex, i + 1); continue; }
+    if (!titleLine) { titleLine = l; startIndex = i + 1; }
+    else if (!artistLine && !isChordLine(l)) { artistLine = l; startIndex = i + 1; break; }
   }
 
   const sections: Section[] = [];
@@ -144,6 +165,9 @@ export function parseSongText(rawText: string, filename = ""): ParsedSong {
       }
       continue;
     }
+
+    // Skip metadata lines inside the body
+    if (isMetadataLine(trimmed)) continue;
 
     if (isSectionHeader(trimmed)) {
       if (pendingChordLine !== null) {
@@ -183,9 +207,12 @@ export function parseSongText(rawText: string, filename = ""): ParsedSong {
 
   const allChords = sections.flatMap((s) => s.lines.flatMap((l) => l.chords.map((c) => c.chord)));
   const key = guessKey(allChords);
-  const title = titleLine || filename.replace(/\.(pdf|docx?|txt)$/i, "").replace(/[-_]/g, " ").trim();
 
-  return { title, artist: artistLine, key, sections, rawText };
+  // Clean song title: remove leading number codes like "006- "
+  const rawTitle = titleLine || filename.replace(/\.(pdf|docx?|txt)$/i, "").replace(/[-_]/g, " ").trim();
+  const cleanTitle = rawTitle.replace(/^\d+[-.\s]+/, "").replace(/\([^)]+\)\s*$/, "").trim();
+
+  return { title: cleanTitle || rawTitle, artist: artistLine, key, sections, rawText };
 }
 
 function guessKey(chords: string[]): string {
