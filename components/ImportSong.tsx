@@ -25,7 +25,9 @@ export default function ImportSong({ onClose }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>("upload");
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [parsed, setParsed] = useState<ParsedSong | null>(null);
   // editable fields
   const [title, setTitle] = useState("");
@@ -118,26 +120,38 @@ export default function ImportSong({ onClose }: Props) {
   }
 
   async function save() {
-    const song: Song = {
-      id: uid(),
-      title: title.trim() || "Sin título",
-      artist: artist.trim(),
-      key,
-      mode: "major",
-      capo: 0,
-      tempo: 75,
-      timeSignature: "4/4",
-      tuning: "standard",
-      notation: "american",
-      showGuitarTab: false,
-      showPianoTab: false,
-      sections,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    await addSong(song, user?.id ?? "");
-    setActiveSong(song.id);
-    setStep("done");
+    if (!user?.id) {
+      setSaveError("Debes iniciar sesión para guardar canciones.");
+      return;
+    }
+    setSaveError("");
+    setSaving(true);
+    try {
+      const song: Song = {
+        id: uid(),
+        title: title.trim() || "Sin título",
+        artist: artist.trim(),
+        key,
+        mode: "major",
+        capo: 0,
+        tempo: 75,
+        timeSignature: "4/4",
+        tuning: "standard",
+        notation: "american",
+        showGuitarTab: false,
+        showPianoTab: false,
+        sections,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      await addSong(song, user.id);
+      setActiveSong(song.id);
+      setStep("done");
+    } catch (e: any) {
+      setSaveError(e.message || "No se pudo guardar. Verifica tu conexión.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -267,12 +281,21 @@ export default function ImportSong({ onClose }: Props) {
               </div>
             ))}
 
+            {saveError && (
+              <div className="flex items-center gap-2 text-rose-400 bg-rose-400/10 rounded-lg px-4 py-3 text-sm">
+                <AlertCircle size={14} /> {saveError}
+              </div>
+            )}
             <div className="flex gap-3 pt-2">
               <button onClick={() => setStep("upload")} className="flex-1 border border-zinc-700 text-zinc-400 rounded-xl py-2.5 text-sm hover:text-white transition-colors">
                 ← Volver
               </button>
-              <button onClick={save} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl py-2.5 text-sm transition-colors">
-                Guardar canción
+              <button
+                onClick={save}
+                disabled={saving}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
+              >
+                {saving ? "Guardando…" : "Guardar canción"}
               </button>
             </div>
           </div>
