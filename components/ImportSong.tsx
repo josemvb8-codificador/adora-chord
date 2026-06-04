@@ -250,7 +250,8 @@ export default function ImportSong({ onClose }: Props) {
                             <input
                               value={cp.chord}
                               onChange={(e) => updateChordInLine(section.id, li, ci, e.target.value)}
-                              className="w-14 bg-indigo-900/40 border border-indigo-700/50 rounded px-1.5 py-0.5 text-indigo-300 text-xs font-mono focus:outline-none focus:border-indigo-400"
+                              style={{ width: `${Math.max(2, cp.chord.length) * 8 + 12}px` }}
+                              className="bg-indigo-900/40 border border-indigo-700/50 rounded px-1 py-0.5 text-indigo-300 text-xs font-mono focus:outline-none focus:border-indigo-400 min-w-0"
                             />
                             <button onClick={() => removeChordFromLine(section.id, li, ci)}
                               className="text-zinc-600 hover:text-rose-400 p-0.5">
