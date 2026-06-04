@@ -1,9 +1,49 @@
 "use client";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { Song, Section, SongLine, Notation, Instrument } from "@/types";
+import { Song, Notation, Instrument } from "@/types";
 import { transposeChord } from "@/lib/chords";
+import { supabase, DbSong } from "@/lib/supabase";
 
+// ── helpers ────────────────────────────────────────────────────────────────
+function toDb(song: Song, userId: string): Omit<DbSong, "created_at" | "updated_at"> {
+  return {
+    id: song.id,
+    user_id: userId,
+    title: song.title,
+    artist: song.artist,
+    key: song.key,
+    mode: song.mode,
+    capo: song.capo,
+    tempo: song.tempo,
+    time_signature: song.timeSignature,
+    tuning: song.tuning,
+    sections: song.sections as any,
+    is_shared: false,
+  };
+}
+
+function fromDb(row: DbSong): Song {
+  return {
+    id: row.id,
+    title: row.title,
+    artist: row.artist,
+    key: row.key,
+    mode: row.mode as "major" | "minor",
+    capo: row.capo,
+    tempo: row.tempo,
+    timeSignature: row.time_signature as Song["timeSignature"],
+    tuning: row.tuning as Song["tuning"],
+    notation: "american",
+    showGuitarTab: false,
+    showPianoTab: false,
+    sections: row.sections,
+    createdAt: new Date(row.created_at).getTime(),
+    updatedAt: new Date(row.updated_at).getTime(),
+  };
+}
+
+// ── store ──────────────────────────────────────────────────────────────────
 interface SongsState {
   songs: Song[];
   activeSongId: string | null;
@@ -11,107 +51,132 @@ interface SongsState {
   notation: Notation;
   instrument: Instrument;
   chordModalChord: string | null;
+  syncing: boolean;
 
-  addSong: (song: Song) => void;
-  updateSong: (id: string, updates: Partial<Song>) => void;
-  deleteSong: (id: string) => void;
+  // local UI
   setActiveSong: (id: string | null) => void;
-  setTranspose: (semitones: number) => void;
+  setTranspose: (n: number) => void;
   setNotation: (n: Notation) => void;
   setInstrument: (i: Instrument) => void;
-  setChordModal: (chord: string | null) => void;
-}
+  setChordModal: (c: string | null) => void;
 
-const DEMO_SONG: Song = {
-  id: "demo-1",
-  title: "Santo",
-  artist: "Marcos Witt",
-  key: "G",
-  mode: "major",
-  capo: 0,
-  tempo: 72,
-  timeSignature: "4/4",
-  tuning: "standard",
-  notation: "american",
-  showGuitarTab: false,
-  showPianoTab: false,
-  sections: [
-    {
-      id: "s1",
-      type: "verse",
-      name: "Verso 1",
-      lines: [
-        {
-          lyrics: "Santo, Santo, Santo es el Señor",
-          chords: [
-            { chord: "G", beat: 1 },
-            { chord: "D", beat: 3 },
-          ],
-        },
-        {
-          lyrics: "Dios Todopoderoso",
-          chords: [
-            { chord: "Em", beat: 1 },
-            { chord: "C", beat: 3 },
-          ],
-        },
-      ],
-    },
-    {
-      id: "s2",
-      type: "chorus",
-      name: "Coro",
-      lines: [
-        {
-          lyrics: "Santo, Santo, Santo",
-          chords: [
-            { chord: "G", beat: 1 },
-            { chord: "Cmaj7", beat: 3 },
-          ],
-        },
-        {
-          lyrics: "El Señor de los ejércitos",
-          chords: [
-            { chord: "D", beat: 1 },
-            { chord: "G", beat: 4 },
-          ],
-        },
-      ],
-    },
-  ],
-  createdAt: Date.now(),
-  updatedAt: Date.now(),
-};
+  // cloud CRUD
+  fetchSongs: (userId: string) => Promise<void>;
+  addSong: (song: Song, userId: string) => Promise<void>;
+  updateSong: (id: string, updates: Partial<Song>, userId?: string) => Promise<void>;
+  deleteSong: (id: string) => Promise<void>;
+  syncShared: () => Promise<void>;
+}
 
 export const useSongsStore = create<SongsState>()(
   persist(
     (set, get) => ({
-      songs: [DEMO_SONG],
-      activeSongId: "demo-1",
+      songs: [],
+      activeSongId: null,
       transposeSemitones: 0,
       notation: "american",
       instrument: "guitar",
       chordModalChord: null,
+      syncing: false,
 
-      addSong: (song) => set((s) => ({ songs: [...s.songs, song] })),
-      updateSong: (id, updates) =>
+      setActiveSong: (id) => set({ activeSongId: id, transposeSemitones: 0 }),
+      setTranspose: (n) => set({ transposeSemitones: n }),
+      setNotation: (n) => set({ notation: n }),
+      setInstrument: (i) => set({ instrument: i }),
+      setChordModal: (c) => set({ chordModalChord: c }),
+
+      fetchSongs: async (userId) => {
+        set({ syncing: true });
+        const { data: own } = await supabase
+          .from("songs")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false });
+
+        const { data: shared } = await supabase
+          .from("songs")
+          .select("*")
+          .eq("is_shared", true)
+          .neq("user_id", userId)
+          .order("created_at", { ascending: false });
+
+        const all = [...(own ?? []), ...(shared ?? [])].map(fromDb);
+        set({ songs: all, syncing: false });
+        if (all.length > 0 && !get().activeSongId) {
+          set({ activeSongId: all[0].id });
+        }
+      },
+
+      addSong: async (song, userId) => {
+        const { data, error } = await supabase
+          .from("songs")
+          .insert(toDb(song, userId))
+          .select()
+          .single();
+        if (data && !error) {
+          set((s) => ({ songs: [fromDb(data), ...s.songs], activeSongId: data.id }));
+        }
+      },
+
+      updateSong: async (id, updates, userId) => {
+        // optimistic update
         set((s) => ({
           songs: s.songs.map((song) =>
             song.id === id ? { ...song, ...updates, updatedAt: Date.now() } : song
           ),
-        })),
-      deleteSong: (id) =>
+        }));
+        const song = get().songs.find((s) => s.id === id);
+        if (!song || !userId) return;
+        await supabase
+          .from("songs")
+          .update({
+            title: song.title,
+            artist: song.artist,
+            key: song.key,
+            mode: song.mode,
+            capo: song.capo,
+            tempo: song.tempo,
+            sections: song.sections,
+          })
+          .eq("id", id);
+      },
+
+      deleteSong: async (id) => {
         set((s) => ({
           songs: s.songs.filter((song) => song.id !== id),
-          activeSongId: s.activeSongId === id ? null : s.activeSongId,
-        })),
-      setActiveSong: (id) => set({ activeSongId: id, transposeSemitones: 0 }),
-      setTranspose: (semitones) => set({ transposeSemitones: semitones }),
-      setNotation: (n) => set({ notation: n }),
-      setInstrument: (i) => set({ instrument: i }),
-      setChordModal: (chord) => set({ chordModalChord: chord }),
+          activeSongId: s.activeSongId === id
+            ? (s.songs.find((s) => s.id !== id)?.id ?? null)
+            : s.activeSongId,
+        }));
+        await supabase.from("songs").delete().eq("id", id);
+      },
+
+      syncShared: async () => {
+        const { data } = await supabase
+          .from("songs")
+          .select("*")
+          .eq("is_shared", true)
+          .order("created_at", { ascending: false });
+        if (data) {
+          const shared = data.map(fromDb);
+          set((s) => {
+            const own = s.songs.filter((song) =>
+              !shared.some((sh) => sh.id === song.id)
+            );
+            return { songs: [...own, ...shared] };
+          });
+        }
+      },
     }),
-    { name: "adora-songs" }
+    {
+      name: "adora-ui",
+      // only persist UI preferences, not songs (those come from Supabase)
+      partialize: (s) => ({
+        notation: s.notation,
+        instrument: s.instrument,
+        transposeSemitones: s.transposeSemitones,
+      }),
+    }
   )
 );
 

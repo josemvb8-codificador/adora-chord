@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
 import { useSongsStore } from "@/store/songs";
+import { useAuthStore } from "@/store/auth";
 import { Song, Section, SongLine, SectionType } from "@/types";
-import { X, Plus, Trash2, GripVertical } from "lucide-react";
+import { X, Plus, Trash2 } from "lucide-react";
 import { ALL_ROOTS } from "@/lib/chords";
 
 function uid() { return Math.random().toString(36).slice(2); }
@@ -17,6 +18,7 @@ interface Props { onClose: () => void; editId?: string; }
 
 export default function SongEditor({ onClose, editId }: Props) {
   const { addSong, updateSong, songs } = useSongsStore();
+  const { user } = useAuthStore();
   const existing = editId ? songs.find((s) => s.id === editId) : undefined;
 
   const [title, setTitle] = useState(existing?.title || "");
@@ -102,9 +104,9 @@ export default function SongEditor({ onClose, editId }: Props) {
       sections,
     };
     if (editId) {
-      updateSong(editId, songData);
+      updateSong(editId, songData, user?.id);
     } else {
-      addSong({ ...songData, id: uid(), createdAt: Date.now(), updatedAt: Date.now() });
+      addSong({ ...songData, id: uid(), createdAt: Date.now(), updatedAt: Date.now() }, user?.id ?? "");
     }
     onClose();
   }

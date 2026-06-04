@@ -1,6 +1,7 @@
 "use client";
 import { useSongsStore } from "@/store/songs";
-import { Plus, Search, Upload } from "lucide-react";
+import { useAuthStore } from "@/store/auth";
+import { Plus, Search, Upload, LogOut } from "lucide-react";
 import { useState } from "react";
 import AdoraLogo from "./AdoraLogo";
 import ThemeToggle from "./ThemeToggle";
@@ -11,7 +12,8 @@ interface Props {
 }
 
 export default function Sidebar({ onNewSong, onImport }: Props) {
-  const { songs, activeSongId, setActiveSong } = useSongsStore();
+  const { songs, activeSongId, setActiveSong, syncing } = useSongsStore();
+  const { user, signOut } = useAuthStore();
   const [query, setQuery] = useState("");
 
   const filtered = songs.filter((s) =>
@@ -113,6 +115,22 @@ export default function Sidebar({ onNewSong, onImport }: Props) {
           );
         })}
       </div>
+
+      {/* User info */}
+      {user && (
+        <div style={{ padding: "8px 14px", borderTop: "1px solid var(--c-border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <p style={{ fontSize: 11, color: "var(--c-text2)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>
+              {user.user_metadata?.full_name || user.email}
+            </p>
+            {syncing && <p style={{ fontSize: 10, color: "var(--c-indigo2)" }}>Sincronizando…</p>}
+          </div>
+          <button onClick={signOut} title="Cerrar sesión"
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text4)", padding: 4 }}>
+            <LogOut size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Actions */}
       <div style={{ padding: 12, borderTop: "1px solid var(--c-border)", display: "flex", flexDirection: "column", gap: 8 }}>

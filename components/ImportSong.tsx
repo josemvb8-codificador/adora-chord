@@ -2,8 +2,9 @@
 import { useRef, useState } from "react";
 import { parseSongText, ParsedSong } from "@/lib/songParser";
 import { useSongsStore } from "@/store/songs";
+import { useAuthStore } from "@/store/auth";
 import { Song, Section, SectionType } from "@/types";
-import { Upload, FileText, X, Check, AlertCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { Upload, FileText, X, Check, AlertCircle, Plus } from "lucide-react";
 import { ALL_ROOTS } from "@/lib/chords";
 
 function uid() { return Math.random().toString(36).slice(2); }
@@ -20,6 +21,7 @@ type Step = "upload" | "review" | "done";
 
 export default function ImportSong({ onClose }: Props) {
   const { addSong, setActiveSong } = useSongsStore();
+  const { user } = useAuthStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>("upload");
   const [loading, setLoading] = useState(false);
@@ -149,7 +151,7 @@ export default function ImportSong({ onClose }: Props) {
     }));
   }
 
-  function save() {
+  async function save() {
     const song: Song = {
       id: uid(),
       title: title.trim() || "Sin título",
@@ -167,7 +169,7 @@ export default function ImportSong({ onClose }: Props) {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    addSong(song);
+    await addSong(song, user?.id ?? "");
     setActiveSong(song.id);
     setStep("done");
   }
