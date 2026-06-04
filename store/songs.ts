@@ -6,9 +6,8 @@ import { transposeChord } from "@/lib/chords";
 import { supabase, DbSong } from "@/lib/supabase";
 
 // ── helpers ────────────────────────────────────────────────────────────────
-function toDb(song: Song, userId: string): Omit<DbSong, "created_at" | "updated_at"> {
+function toDb(song: Song, userId: string): Omit<DbSong, "id" | "created_at" | "updated_at"> {
   return {
-    id: song.id,
     user_id: userId,
     title: song.title,
     artist: song.artist,

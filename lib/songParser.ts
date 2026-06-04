@@ -1,6 +1,6 @@
-import { Section, SongLine } from "@/types";
+import { Section, SongLine, ChordPosition } from "@/types";
 
-// Chord token: G, Am, F#m7, Bb, Cmaj7, D/F#, Dsus4, Cadd9, etc.
+// Chord token regex: G, Am, F#m7, Bb/D, Dsus4, Cadd9, etc.
 const CHORD_TOKEN = /^[A-G][b#]?(maj|min|m|M|dim|aug|sus|add)?[2-9]?(\/[A-G][b#]?)?$/;
 
 export function isChord(word: string): boolean {
@@ -13,9 +13,8 @@ export function isChordLine(line: string): boolean {
   const tokens = trimmed.split(/\s+/).filter(Boolean);
   if (!tokens.length) return false;
   const chordCount = tokens.filter(isChord).length;
-  // A chord line: majority are chord tokens AND no long words (lyrics tend to be longer)
-  const hasLongWord = tokens.some((t) => t.length > 8 && !isChord(t));
-  return chordCount >= 1 && chordCount / tokens.length >= 0.55 && !hasLongWord;
+  const hasLongNonChordWord = tokens.some((t) => t.length > 7 && !isChord(t));
+  return chordCount >= 1 && chordCount / tokens.length >= 0.6 && !hasLongNonChordWord;
 }
 
 export function isSectionHeader(line: string): boolean {
@@ -37,7 +36,40 @@ export function parseSectionType(line: string): { type: Section["type"]; name: s
   return { type: "verse", name: line.trim() };
 }
 
-function uid() { return Math.random().toString(36).slice(2); }
+/**
+ * Given a raw chord line (e.g. "G        Am    F     C")
+ * and the lyric line below it, compute the character position
+ * of each chord relative to the lyric string.
+ */
+function parseChordsWithPositions(chordLine: string, lyricLine: string): ChordPosition[] {
+  const result: ChordPosition[] = [];
+  const re = /(\S+)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = re.exec(chordLine)) !== null) {
+    const token = match[1];
+    if (!isChord(token)) continue;
+    // Column position in the chord line
+    const col = match.index;
+    // Map column to a character position in the lyric (clamp to lyric length)
+    const pos = lyricLine.length > 0 ? Math.min(col, lyricLine.length) : col;
+    result.push({ chord: token, pos });
+  }
+  return result;
+}
+
+function uid() { return crypto.randomUUID(); }
+
+// Clean PDF artifacts: remove // separators, form feeds, etc.
+function cleanText(text: string): string {
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\f/g, "\n\n")
+    .replace(/\/\//g, "")          // // artifacts from some PDF exporters
+    .replace(/[ \t]+$/gm, "")      // trailing spaces per line
+    .replace(/\n{3,}/g, "\n\n");   // collapse 3+ blank lines to 2
+}
 
 export interface ParsedSong {
   title: string;
@@ -48,84 +80,77 @@ export interface ParsedSong {
 }
 
 export function parseSongText(rawText: string, filename = ""): ParsedSong {
-  // Normalize line endings and remove page-break artifacts
-  const text = rawText
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .replace(/\f/g, "\n\n") // form feed → blank line
-    .replace(/[ \t]+$/gm, ""); // trailing spaces
-
+  const text = cleanText(rawText);
   const lines = text.split("\n");
 
-  // ── Detect title / artist from first non-empty, non-chord, non-section lines ──
+  // ── Detect title / artist ──
   let titleLine = "";
   let artistLine = "";
   let startIndex = 0;
 
-  const contentLines = lines.map((l, i) => ({ l, i })).filter(({ l }) => l.trim());
-  for (let n = 0; n < Math.min(5, contentLines.length); n++) {
-    const { l, i } = contentLines[n];
+  const nonEmpty = lines.map((l, i) => ({ l, i })).filter(({ l }) => l.trim());
+  for (let n = 0; n < Math.min(4, nonEmpty.length); n++) {
+    const { l, i } = nonEmpty[n];
     if (!isSectionHeader(l) && !isChordLine(l)) {
       if (!titleLine) { titleLine = l.trim(); startIndex = i + 1; }
-      else if (!artistLine && n === 1) { artistLine = l.trim(); startIndex = i + 1; }
+      else if (!artistLine) { artistLine = l.trim(); startIndex = i + 1; }
       else break;
     } else break;
   }
 
   const sections: Section[] = [];
   let current: Section = { id: uid(), type: "verse", name: "Verso 1", lines: [] };
-  let pendingChords: { chord: string }[] = [];
-  let sectionCount = 0;
+  let pendingChordLine: string | null = null;
 
   for (let i = startIndex; i < lines.length; i++) {
     const raw = lines[i];
     const trimmed = raw.trimEnd();
 
-    // Blank line: flush pending chords as empty lyric line if any
+    // Blank line: flush pending chords as standalone line
     if (!trimmed.trim()) {
-      if (pendingChords.length) {
-        current.lines.push({ lyrics: "", chords: pendingChords });
-        pendingChords = [];
+      if (pendingChordLine !== null) {
+        const chords = parseChordsWithPositions(pendingChordLine, "");
+        current.lines.push({ lyrics: "", chords });
+        pendingChordLine = null;
       }
       continue;
     }
 
     if (isSectionHeader(trimmed)) {
-      if (pendingChords.length) {
-        current.lines.push({ lyrics: "", chords: pendingChords });
-        pendingChords = [];
+      if (pendingChordLine !== null) {
+        current.lines.push({ lyrics: "", chords: parseChordsWithPositions(pendingChordLine, "") });
+        pendingChordLine = null;
       }
       if (current.lines.length) sections.push(current);
       const { type, name } = parseSectionType(trimmed);
-      sectionCount++;
-      const label = name || `Sección ${sectionCount}`;
-      current = { id: uid(), type, name: label, lines: [] };
+      current = { id: uid(), type, name, lines: [] };
       continue;
     }
 
     if (isChordLine(trimmed)) {
-      // Flush any previous pending chord line that had no lyric follow-up
-      if (pendingChords.length) {
-        current.lines.push({ lyrics: "", chords: pendingChords });
+      // Flush previous chord line that had no lyric
+      if (pendingChordLine !== null) {
+        current.lines.push({ lyrics: "", chords: parseChordsWithPositions(pendingChordLine, "") });
       }
-      pendingChords = trimmed.split(/\s+/).filter(isChord).map((c) => ({ chord: c }));
+      pendingChordLine = trimmed;
       continue;
     }
 
-    // Lyrics line
-    const lyricLine: SongLine = {
-      lyrics: trimmed.trim(),
-      chords: pendingChords,
-    };
-    pendingChords = [];
-    current.lines.push(lyricLine);
+    // Lyric line — pair with pending chords if any
+    const lyric = trimmed.trim();
+    const chords = pendingChordLine !== null
+      ? parseChordsWithPositions(pendingChordLine, lyric)
+      : [];
+    pendingChordLine = null;
+    current.lines.push({ lyrics: lyric, chords });
   }
 
   // Flush leftovers
-  if (pendingChords.length) current.lines.push({ lyrics: "", chords: pendingChords });
+  if (pendingChordLine !== null) {
+    current.lines.push({ lyrics: "", chords: parseChordsWithPositions(pendingChordLine, "") });
+  }
   if (current.lines.length) sections.push(current);
 
-  // If nothing was parsed into sections, put everything as a single verse
   if (!sections.length) {
     sections.push({ id: uid(), type: "verse", name: "Verso 1", lines: [{ lyrics: rawText.trim(), chords: [] }] });
   }

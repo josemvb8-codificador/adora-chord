@@ -6,7 +6,7 @@ import { Song, Section, SongLine, SectionType } from "@/types";
 import { X, Plus, Trash2 } from "lucide-react";
 import { ALL_ROOTS } from "@/lib/chords";
 
-function uid() { return Math.random().toString(36).slice(2); }
+function uid() { return crypto.randomUUID(); }
 
 const SECTION_TYPES: SectionType[] = ["intro", "verse", "prechorus", "chorus", "bridge", "interlude", "solo", "outro"];
 const SECTION_LABELS: Record<SectionType, string> = {
