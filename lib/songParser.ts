@@ -42,14 +42,17 @@ export function isChord(word: string): boolean {
 
 export function normalizeSolfege(chord: string): string {
   const w = chord.trim();
-  if (CHORD_AMERICAN.test(w)) return w; // already American
+  if (CHORD_AMERICAN.test(w)) return w; // already American notation
   const parsed = parseSolfegeRoot(w);
   if (!parsed) return w;
-  const american = SOLFEGE_TO_AMERICAN[parsed.root + parsed.suffix.toLowerCase().replace(/m$/, "")]
-    || SOLFEGE_TO_AMERICAN[parsed.root];
+  const american = SOLFEGE_TO_AMERICAN[parsed.root];
   if (!american) return w;
-  // Reconstruct: keep suffix modifiers (m, maj7, sus4, etc.)
-  const suffix = parsed.suffix;
+
+  // Normalize suffix:
+  // In Spanish solfège, uppercase "M" means "menor" (minor) → lowercase "m"
+  // e.g. DOM→Cm, LAM→Am, SOLM→Gm, REM→Dm
+  // Lowercase "m" stays as-is; other suffixes (maj7, sus4, add9…) are preserved
+  const suffix = parsed.suffix === "M" ? "m" : parsed.suffix;
   return american + suffix;
 }
 

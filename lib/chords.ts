@@ -18,7 +18,9 @@ export function transposeChord(chord: string, semitones: number): string {
   if (!parsed.tonic) return chord;
   const newTonic = Note.transpose(parsed.tonic, Interval.fromSemitones(semitones));
   const simplified = Note.simplify(newTonic) || newTonic;
-  return simplified + parsed.aliases[0] || simplified + parsed.type;
+  // Extract suffix directly from the original string (avoids tonal aliases like "M" for major)
+  const suffix = chord.slice(parsed.tonic.length);
+  return simplified + suffix;
 }
 
 export function chordToNotation(chord: string, notation: "american" | "solfege"): string {
