@@ -29,11 +29,7 @@ export default function SongViewer() {
   const [exporting, setExporting] = useState<"pdf" | "word" | null>(null);
 
   const rawSong = songs.find((s) => s.id === activeSongId);
-  if (!rawSong) return (
-    <div className="flex-1 flex items-center justify-center text-sm" style={{ color: "var(--c-text4)" }}>
-      Selecciona o agrega una canción
-    </div>
-  );
+  if (!rawSong) return null; // WelcomeScreen is rendered by the parent
 
   const song = getTransposedSong(rawSong, transposeSemitones);
 
@@ -71,18 +67,18 @@ export default function SongViewer() {
         backdropFilter: "blur(8px)",
       }}>
         <div style={{ maxWidth: 680, margin: "0 auto" }}>
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 style={{ fontSize: 20, fontWeight: 700, color: "var(--c-text)", lineHeight: 1.2 }}>{rawSong.title}</h1>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <h1 style={{ fontSize: "clamp(15px, 4vw, 20px)", fontWeight: 700, color: "var(--c-text)", lineHeight: 1.2, wordBreak: "break-word" }}>{rawSong.title}</h1>
               <p style={{ fontSize: 13, color: "var(--c-text3)", marginTop: 2 }}>{rawSong.artist}</p>
             </div>
-            <div className="flex items-center gap-1 flex-wrap justify-end" style={{ marginTop: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", justifyContent: "flex-end", flexShrink: 0, marginTop: 2 }}>
               {[
                 `${song.key}${song.mode === "minor" ? "m" : ""}`,
                 rawSong.capo > 0 ? `Cejilla ${rawSong.capo}` : null,
                 `${rawSong.tempo} BPM`,
               ].filter(Boolean).map((label) => (
-                <span key={label} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "var(--c-elevated)", color: "var(--c-text3)" }}>
+                <span key={label} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 6, background: "var(--c-elevated)", color: "var(--c-text3)", whiteSpace: "nowrap" }}>
                   {label}
                 </span>
               ))}
@@ -113,7 +109,7 @@ export default function SongViewer() {
               onClick={() => setNotation(notation === "american" ? "solfege" : "american")}
               style={{ ...btnBase, background: "var(--c-elevated)", color: "var(--c-text2)" }}
             >
-              {notation === "american" ? "A B C → Do Re Mi" : "Do Re Mi → A B C"}
+              {notation === "american" ? "ABC → Do Re Mi" : "Do Re Mi → ABC"}
             </button>
 
             {/* Instrument */}

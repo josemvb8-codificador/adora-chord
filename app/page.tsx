@@ -11,6 +11,7 @@ import QuickChordEditor from "@/components/QuickChordEditor";
 import DeleteSongButton from "@/components/DeleteSongButton";
 import ChordModal from "@/components/ChordModal";
 import AdoraLogo from "@/components/AdoraLogo";
+import WelcomeScreen from "@/components/WelcomeScreen";
 import { Menu, X, Pencil, Wand2 } from "lucide-react";
 
 export default function Home() {
@@ -87,7 +88,7 @@ export default function Home() {
           </div>
         )}
 
-        <SongViewer />
+        {activeSongId ? <SongViewer /> : <WelcomeScreen />}
       </div>
 
       {showEditor && <SongEditor onClose={() => setShowEditor(false)} editId={editId} />}
