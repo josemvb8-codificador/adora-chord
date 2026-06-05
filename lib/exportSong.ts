@@ -29,15 +29,32 @@ export async function exportToPdf(song: Song, semitones: number, notation: "amer
   }
 
   // ── Header ──
-  doc.setFillColor(99, 102, 241);
-  doc.rect(0, 0, W, 12, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(255, 255, 255);
-  doc.text("Adora", MARGIN, 8);
+  doc.setFillColor(15, 10, 30);
+  doc.rect(0, 0, W, 14, "F");
+
+  // Logo image in header
+  try {
+    const res = await fetch("/adora-logo-pdf.png");
+    const blob = await res.blob();
+    const b64: string = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string).split(",")[1]);
+      reader.readAsDataURL(blob);
+    });
+    // Logo aspect ratio 400:230 — render at height 10mm → width ≈ 17.4mm
+    doc.addImage(b64, "PNG", MARGIN, 2, 17.4, 10);
+  } catch {
+    // Fallback: text only
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(255, 255, 255);
+    doc.text("Adora", MARGIN, 9);
+  }
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text("adorachords.app", W - MARGIN, 8, { align: "right" });
+  doc.setTextColor(156, 163, 175);
+  doc.text("adorachords.app", W - MARGIN, 9, { align: "right" });
 
   y = 22;
 
@@ -151,10 +168,17 @@ export async function exportToPdf(song: Song, semitones: number, notation: "amer
   const totalPages = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
+    doc.setDrawColor(236, 72, 153);
+    doc.setLineWidth(0.3);
+    doc.line(MARGIN, pageH - 12, W - MARGIN, pageH - 12);
     doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(236, 72, 153);
+    doc.text("Adora", MARGIN, pageH - 7);
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(148, 163, 184);
-    doc.text(`Adora — ${song.title}`, MARGIN, pageH - 8);
-    doc.text(`Página ${i} / ${totalPages}`, W - MARGIN, pageH - 8, { align: "right" });
+    doc.text(` — ${song.title}`, MARGIN + doc.getTextWidth("Adora"), pageH - 7);
+    doc.text(`Página ${i} / ${totalPages}`, W - MARGIN, pageH - 7, { align: "right" });
   }
 
   doc.save(`${song.title.replace(/\s+/g, "_")}.pdf`);

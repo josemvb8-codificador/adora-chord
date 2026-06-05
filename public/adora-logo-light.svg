@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 230" width="400" height="230">
+  <defs>
+    <linearGradient id="b" x1="40%" y1="100%" x2="60%" y2="0%">
+      <stop offset="0%"   style="stop-color:#ec4899"/>
+      <stop offset="40%"  style="stop-color:#f472b6"/>
+      <stop offset="75%"  style="stop-color:#fb923c"/>
+      <stop offset="100%" style="stop-color:#fef9c3"/>
+    </linearGradient>
+    <linearGradient id="r" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%"   style="stop-color:#db2777"/>
+      <stop offset="55%"  style="stop-color:#fdba74"/>
+      <stop offset="100%" style="stop-color:#ffffff"/>
+    </linearGradient>
+    <linearGradient id="il" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%"   style="stop-color:#831843;stop-opacity:0.50"/>
+      <stop offset="100%" style="stop-color:#f472b6;stop-opacity:0"/>
+    </linearGradient>
+    <linearGradient id="txt" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   style="stop-color:#0f0a1e"/>
+      <stop offset="100%" style="stop-color:#1e1b4b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="75%" r="50%">
+      <stop offset="0%"   style="stop-color:#fce7f3;stop-opacity:0.80"/>
+      <stop offset="100%" style="stop-color:#fff;stop-opacity:0"/>
+    </radialGradient>
+    <filter id="sh">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#db2777" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <!-- Fondo blanco -->
+  <rect width="400" height="230" fill="#ffffff"/>
+
+  <!-- Aura -->
+  <ellipse cx="200" cy="118" rx="28" ry="44" fill="url(#glow)"/>
+
+  <!-- Contorno gota -->
+  <path d="M 200 168 C 215 168 226 156 226 141 C 226 126 217 106 200 82 C 183 106 174 126 174 141 C 174 156 185 168 200 168 Z"
+        fill="none" stroke="#f472b6" stroke-width="1.8" opacity="0.28"/>
+
+  <!-- Texto -->
+  <text x="179" y="168" font-family="'Helvetica Neue',Arial,sans-serif" font-size="72" font-weight="900" text-anchor="end" fill="url(#txt)">Ad</text>
+  <text x="221" y="168" font-family="'Helvetica Neue',Arial,sans-serif" font-size="72" font-weight="900" text-anchor="start" fill="url(#txt)">ra</text>
+
+  <!-- Lengua izquierda -->
+  <path d="M 202 166 C 209 166 219 159 220 149 C 221 139 219 127 217 117 C 215 107 212 100 209 95 C 206 91 204 97 200 103 C 196 97 194 91 191 87 C 188 92 185 103 183 114 C 181 126 179 138 178 148 C 177 158 184 167 194 168 C 197 169 200 167 202 166 Z"
+        fill="url(#b)" filter="url(#sh)"/>
+  <path d="M 191 165 C 186 163 181 157 180 148 C 179 139 181 127 184 116 C 186 107 189 99 191 93 C 193 101 194 113 193 124 C 192 135 191 149 193 160 C 193 163 192 166 191 165 Z"
+        fill="url(#il)"/>
+
+  <!-- Lengua derecha -->
+  <path d="M 200 103 C 202 97 205 91 208 88 C 211 84 214 83 212 90 C 214 96 216 105 217 115 C 218 125 217 136 216 145 C 214 137 213 127 211 117 C 209 107 206 103 200 103 Z"
+        fill="url(#r)"/>
+
+  <!-- Núcleo -->
+  <path d="M 200 103 C 202 99 204 96 205 94 C 207 97 208 103 208 110 C 207 117 205 121 202 123 C 201 117 200 110 200 103 Z"
+        fill="#fecdd3" opacity="0.72"/>
+
+  <!-- Reflejo -->
+  <ellipse cx="188" cy="116" rx="2.5" ry="7" fill="#ffffff" opacity="0.50" transform="rotate(-18 188 116)"/>
+
+  <!-- Tagline -->
+  <text x="200" y="192" font-family="'Helvetica Neue',Arial,sans-serif" font-size="9.5" font-weight="300" letter-spacing="5" text-anchor="middle" fill="#9ca3af">ALABANZAS  CRISTIANAS</text>
+  <line x1="116" y1="200" x2="284" y2="200" stroke="#f472b6" stroke-width="1" opacity="0.28"/>
+</svg>
