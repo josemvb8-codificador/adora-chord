@@ -24,9 +24,6 @@
     </filter>
   </defs>
 
-  <!-- Fondo oscuro -->
-  <rect width="400" height="230" fill="#0f0a1e" rx="16"/>
-
   <!-- Aura -->
   <ellipse cx="200" cy="118" rx="28" ry="44" fill="url(#glow)"/>
 

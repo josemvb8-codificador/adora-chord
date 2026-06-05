@@ -28,9 +28,6 @@
     </filter>
   </defs>
 
-  <!-- Fondo blanco -->
-  <rect width="400" height="230" fill="#ffffff"/>
-
   <!-- Aura -->
   <ellipse cx="200" cy="118" rx="28" ry="44" fill="url(#glow)"/>
 
