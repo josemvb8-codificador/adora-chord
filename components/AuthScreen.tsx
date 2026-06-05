@@ -48,14 +48,33 @@ export default function AuthScreen() {
   );
 
   return (
-    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "var(--c-bg)", padding: 16 }}>
-      <div style={{ width: "100%", maxWidth: 380 }}>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <AdoraLogo size={120} className="mx-auto mb-2" />
-          <p style={{ color: "var(--c-text3)", fontSize: 14, marginTop: 8 }}>
-            {mode === "login" ? "Inicia sesión para continuar" : "Crea tu cuenta en Adora"}
-          </p>
-        </div>
+    <div style={{
+      minHeight: "100dvh",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "var(--c-bg)",
+      padding: "24px 16px",
+    }}>
+      {/* Logo centrado exactamente en la mitad superior */}
+      <div style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        paddingBottom: 24,
+        width: "100%",
+      }}>
+        <AdoraLogo size={130} className="mx-auto" />
+      </div>
+
+      {/* Formulario en la mitad inferior */}
+      <div style={{ flex: 1, width: "100%", maxWidth: 380, display: "flex", flexDirection: "column", justifyContent: "flex-start", paddingTop: 8 }}>
+        <p style={{ color: "var(--c-text3)", fontSize: 14, marginBottom: 24, textAlign: "center" }}>
+          {mode === "login" ? "Inicia sesión para continuar" : "Crea tu cuenta en Adora"}
+        </p>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {mode === "register" && (
