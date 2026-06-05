@@ -39,7 +39,7 @@ export default function Sidebar({ onNewSong, onImport }: Props) {
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <AdoraLogo size={26} />
+        <AdoraLogo size={42} />
         <ThemeToggle />
       </div>
 

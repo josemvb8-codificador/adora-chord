@@ -61,7 +61,7 @@ export default function Home() {
           <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text2)" }}>
             {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
-          <AdoraLogo size={22} />
+          <AdoraLogo size={34} />
           {activeSongId && (
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowQuickEdit(true)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text3)" }}><Wand2 size={18} /></button>

@@ -29,10 +29,12 @@ export async function exportToPdf(song: Song, semitones: number, notation: "amer
   }
 
   // ── Header ──
+  // Altura 18mm para dar espacio al logo
   doc.setFillColor(15, 10, 30);
-  doc.rect(0, 0, W, 14, "F");
+  doc.rect(0, 0, W, 18, "F");
 
-  // Logo image in header
+  // Logo: PNG con fondo #0f0a1e — se mezcla perfectamente con el header
+  // Relación 400:230 → a 14mm de alto el ancho es 24.3mm
   try {
     const res = await fetch("/adora-logo-pdf.png");
     const blob = await res.blob();
@@ -41,22 +43,20 @@ export async function exportToPdf(song: Song, semitones: number, notation: "amer
       reader.onload = () => resolve((reader.result as string).split(",")[1]);
       reader.readAsDataURL(blob);
     });
-    // Logo aspect ratio 400:230 — render at height 10mm → width ≈ 17.4mm
-    doc.addImage(b64, "PNG", MARGIN, 2, 17.4, 10);
+    doc.addImage(b64, "PNG", MARGIN - 2, 2, 24.3, 14);
   } catch {
-    // Fallback: text only
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(255, 255, 255);
-    doc.text("Adora", MARGIN, 9);
+    doc.setFontSize(11);
+    doc.setTextColor(244, 114, 182);
+    doc.text("Adora", MARGIN, 12);
   }
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(156, 163, 175);
-  doc.text("adorachords.app", W - MARGIN, 9, { align: "right" });
+  doc.text("adorachords.app", W - MARGIN, 11, { align: "right" });
 
-  y = 22;
+  y = 26;
 
   // ── Title ──
   doc.setTextColor(15, 23, 42);
