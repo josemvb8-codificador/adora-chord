@@ -211,6 +211,48 @@ const GUITAR_CHORDS: Record<string, Fingering> = {
   "Am7b5": { frets: [-1, 0, 1, 2, 1, -1] },
   "Dm7b5": { frets: [-1, -1, 0, 1, 0, 1] },
   "F#m7b5":{ frets: [2, 3, 2, 2, -1, -1] },
+  // ── 6th CHORDS ────────────────────────────────────────────────────────────
+  "A6":   { frets: [-1, 0, 2, 2, 2, 2] },
+  "Am6":  { frets: [-1, 0, 2, 2, 1, 2] },
+  "C6":   { frets: [-1, 3, 2, 2, 1, 0] },
+  "D6":   { frets: [-1, -1, 0, 2, 0, 2] },
+  "Dm6":  { frets: [-1, -1, 0, 2, 0, 1] },
+  "E6":   { frets: [0, 2, 2, 1, 2, 0] },
+  "Em6":  { frets: [0, 2, 2, 0, 2, 0] },
+  "F6":   { frets: [1, 3, 3, 2, 3, 1], barre: 1, barreString: 6 },
+  "G6":   { frets: [3, 2, 0, 0, 0, 0] },
+  "B6":   { frets: [-1, 2, 4, 4, 4, 4], barre: 2, barreString: 5 },
+  "Bm6":  { frets: [-1, 2, 4, 4, 3, 4], barre: 2, barreString: 5 },
+  "F#m6": { frets: [2, 4, 4, 2, 2, 4], barre: 2, barreString: 6 },
+  "C#m6": { frets: [-1, 4, 6, 6, 5, 6], barre: 4, barreString: 5 },
+  // ── SLASH CHORDS (bass note) ───────────────────────────────────────────────
+  "C/E":  { frets: [0, 3, 2, 0, 1, 0] },
+  "C/G":  { frets: [3, 3, 2, 0, 1, 0] },
+  "C/B":  { frets: [-1, 2, 2, 0, 1, 0] },
+  "C/D":  { frets: [-1, -1, 0, 0, 1, 0] },       // C/RE
+  "G/B":  { frets: [-1, 2, 0, 0, 0, 3] },
+  "G/F#": { frets: [2, 2, 0, 0, 0, 3] },
+  "G/D":  { frets: [-1, -1, 0, 0, 0, 3] },
+  "D/F#": { frets: [2, -1, 0, 2, 3, 2] },
+  "D/A":  { frets: [-1, 0, 0, 2, 3, 2] },
+  "D/C":  { frets: [-1, 3, 0, 2, 3, 2] },
+  "Am/E": { frets: [0, 0, 2, 2, 1, 0] },
+  "Am/G": { frets: [3, 0, 2, 2, 1, 0] },
+  "Am/C": { frets: [-1, 3, 2, 2, 1, 0] },
+  "Em/B": { frets: [-1, 2, 2, 0, 0, 0] },
+  "Em/D": { frets: [-1, -1, 0, 0, 0, 0] },
+  "F/C":  { frets: [-1, 3, 3, 2, 1, 1] },
+  "F/A":  { frets: [-1, 0, 3, 2, 1, 1] },
+  "F/E":  { frets: [0, 0, 3, 2, 1, 1] },
+  "Dm/F": { frets: [1, -1, 0, 2, 3, 1] },
+  "Dm/A": { frets: [-1, 0, 0, 2, 3, 1] },
+  "E/G#": { frets: [4, -1, 2, 1, 0, 0] },
+  "A/C#": { frets: [-1, 4, 2, 2, 2, 0] },
+  "A/E":  { frets: [0, 0, 2, 2, 2, 0] },
+  "A/G":  { frets: [3, 0, 2, 2, 2, 0] },
+  "B/D#": { frets: [-1, -1, 1, 2, 0, 2] },
+  "Bm/D": { frets: [-1, -1, 0, 4, 3, 2] },
+  "Bm/F#":{ frets: [2, 2, 4, 4, 3, 2], barre: 2, barreString: 6 },
 };
 
 // ── Chord complexity score (1 = simplest, 5 = most complex) ──────────────
@@ -255,12 +297,48 @@ export function getChordComplexity(chord: string): number {
 export function getGuitarFingering(chord: string): Fingering | null {
   // Try exact match first
   if (GUITAR_CHORDS[chord]) return GUITAR_CHORDS[chord];
-  // Try with enharmonic
+
+  // Handle slash chords: C/E, G/B, D/F#, C/RE (solfège bass), etc.
+  if (chord.includes("/")) {
+    const [mainChord, bassRaw] = chord.split("/");
+
+    // Convert solfège bass note to American if needed
+    const SOLFEGE_TO_NOTE: Record<string, string> = {
+      "DO": "C", "RE": "D", "MI": "E", "FA": "F",
+      "SOL": "G", "LA": "A", "SI": "B",
+      "Do": "C", "Re": "D", "Mi": "E", "Fa": "F",
+      "Sol": "G", "La": "A", "Si": "B",
+    };
+    const bass = SOLFEGE_TO_NOTE[bassRaw] ?? bassRaw;
+    const slashKey = mainChord + "/" + bass;
+
+    // Try specific slash chord first
+    if (GUITAR_CHORDS[slashKey]) return GUITAR_CHORDS[slashKey];
+
+    // Try enharmonic slash variants
+    const bassAlt = Note.enharmonic(bass);
+    if (bassAlt) {
+      const slashAlt = mainChord + "/" + bassAlt;
+      if (GUITAR_CHORDS[slashAlt]) return GUITAR_CHORDS[slashAlt];
+    }
+
+    // Fallback: show the main chord diagram (ignore bass)
+    return getGuitarFingering(mainChord);
+  }
+
+  // Try with enharmonic (e.g. Gb→F#)
   const parsed = Chord.get(chord);
   if (parsed.tonic) {
     const simplified = Note.simplify(parsed.tonic + "4")?.replace("4", "") || parsed.tonic;
     const altKey = simplified + chord.slice(parsed.tonic.length);
     if (GUITAR_CHORDS[altKey]) return GUITAR_CHORDS[altKey];
+
+    // Also try enharmonic the other way (C#→Db)
+    const enharmonic = Note.enharmonic(parsed.tonic);
+    if (enharmonic) {
+      const enhKey = enharmonic + chord.slice(parsed.tonic.length);
+      if (GUITAR_CHORDS[enhKey]) return GUITAR_CHORDS[enhKey];
+    }
   }
   return null;
 }
