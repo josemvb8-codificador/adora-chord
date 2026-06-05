@@ -33,14 +33,13 @@ export default function Sidebar({ onNewSong, onImport }: Props) {
     }}>
       {/* Brand */}
       <div style={{
-        padding: "14px 18px",
+        padding: "16px 18px 12px",
         borderBottom: "1px solid var(--c-border)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
       }}>
-        <AdoraLogo size={42} />
-        <ThemeToggle />
+        <AdoraLogo size={110} className="mb-2" />
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <ThemeToggle />
+        </div>
       </div>
 
       {/* Search */}

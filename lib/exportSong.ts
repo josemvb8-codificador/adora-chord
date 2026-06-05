@@ -28,35 +28,34 @@ export async function exportToPdf(song: Song, semitones: number, notation: "amer
     }
   }
 
-  // ── Header ──
-  // Altura 18mm para dar espacio al logo
-  doc.setFillColor(15, 10, 30);
-  doc.rect(0, 0, W, 18, "F");
+  // ── Header — franja índigo con logo vectorial ──
+  doc.setFillColor(99, 102, 241);
+  doc.rect(0, 0, W, 16, "F");
 
-  // Logo: PNG con fondo #0f0a1e — se mezcla perfectamente con el header
-  // Relación 400:230 → a 14mm de alto el ancho es 24.3mm
-  try {
-    const res = await fetch("/adora-logo-pdf.png");
-    const blob = await res.blob();
-    const b64: string = await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(",")[1]);
-      reader.readAsDataURL(blob);
-    });
-    doc.addImage(b64, "PNG", MARGIN - 2, 2, 24.3, 14);
-  } catch {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(244, 114, 182);
-    doc.text("Adora", MARGIN, 12);
-  }
+  // Logo dibujado directamente (sin imagen) → siempre perfecto
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(156, 163, 175);
-  doc.text("adorachords.app", W - MARGIN, 11, { align: "right" });
+  // "Ad" — blanco
+  doc.setTextColor(255, 255, 255);
+  doc.text("Ad", MARGIN, 11);
+  const adW = doc.getTextWidth("Ad");
 
-  y = 26;
+  // "o" → llama: naranja-rosa
+  doc.setTextColor(251, 146, 60);
+  doc.text("o", MARGIN + adW, 11);
+  const oW = doc.getTextWidth("o");
+
+  // "ra" — blanco
+  doc.setTextColor(255, 255, 255);
+  doc.text("ra", MARGIN + adW + oW, 11);
+
+  // Pequeño acento rosa bajo la "o" (simula base de llama)
+  doc.setDrawColor(244, 114, 182);
+  doc.setLineWidth(0.6);
+  doc.line(MARGIN + adW, 12.5, MARGIN + adW + oW, 12.5);
+
+  y = 24;
 
   // ── Title ──
   doc.setTextColor(15, 23, 42);
