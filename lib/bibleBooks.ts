@@ -105,30 +105,37 @@ export const BIBLE_VERSIONS: BibleVersion[] = [
 export interface Verse { num: number; text: string; }
 
 // Fetch a chapter from the best available API
+// Todas las llamadas pasan por /api/bible (proxy Next.js → evita CORS)
 export async function fetchChapter(
   version: BibleVersion,
   bookNum: number,
   chapter: number
 ): Promise<Verse[]> {
   if (version.api === "getbible") {
-    const url = `https://api.getbible.net/v2/${version.apiKey}/${bookNum}/${chapter}.json`;
+    const url = `/api/bible?provider=getbible&translation=${version.apiKey}&book=${bookNum}&chapter=${chapter}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`Error ${res.status}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error ?? `Error ${res.status}`);
+    }
     const data = await res.json();
-    // getbible returns { verses: { [n]: { verse_nr, verse } } }
+    if (data.error) throw new Error(data.error);
     const versesObj: Record<string, { verse_nr: number; verse: string }> = data.verses ?? {};
     return Object.values(versesObj)
       .sort((a, b) => a.verse_nr - b.verse_nr)
       .map((v) => ({ num: v.verse_nr, text: v.verse.trim() }));
   } else {
-    // bible-api.com — fetch a whole chapter: "book chapter"
     const book = BIBLE_BOOKS.find((b) => b.num === bookNum);
     if (!book) throw new Error("Libro no encontrado");
     const ref = `${book.en} ${chapter}`;
-    const url = `https://bible-api.com/${encodeURIComponent(ref)}?translation=${version.apiKey}`;
+    const url = `/api/bible?provider=bibleapi&translation=${version.apiKey}&ref=${encodeURIComponent(ref)}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`Error ${res.status}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error ?? `Error ${res.status}`);
+    }
     const data = await res.json();
+    if (data.error) throw new Error(data.error);
     return (data.verses ?? []).map((v: { verse: number; text: string }) => ({
       num: v.verse,
       text: v.text.trim(),

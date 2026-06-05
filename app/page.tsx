@@ -13,11 +13,11 @@ import ChordModal from "@/components/ChordModal";
 import AdoraLogo from "@/components/AdoraLogo";
 import WelcomeScreen from "@/components/WelcomeScreen";
 import BibleReader from "@/components/BibleReader";
-import { Menu, X, Pencil, Wand2, BookOpen } from "lucide-react";
+import { Menu, X, Pencil, Wand2, Home as HomeIcon, BookOpen } from "lucide-react";
 
-export default function Home() {
+export default function AppPage() {
   const { user, loading, init } = useAuthStore();
-  const { fetchSongs, activeSongId, chordModalChord, songs } = useSongsStore();
+  const { fetchSongs, activeSongId, setActiveSong, chordModalChord, songs } = useSongsStore();
 
   const [showEditor,    setShowEditor]    = useState(false);
   const [showImport,    setShowImport]    = useState(false);
@@ -25,9 +25,7 @@ export default function Home() {
   const [showBible,     setShowBible]     = useState(false);
   const [editId,        setEditId]        = useState<string | undefined>(undefined);
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
-
-  // Track when songs have finished loading to avoid flicker
-  const [songsReady, setSongsReady] = useState(false);
+  const [songsReady,    setSongsReady]    = useState(false);
 
   useEffect(() => { init(); }, [init]);
 
@@ -49,12 +47,13 @@ export default function Home() {
 
   if (!user) return <AuthScreen />;
 
-  function openNew()  { setEditId(undefined); setShowEditor(true); setSidebarOpen(false); }
-  function openEdit() { if (activeSongId) { setEditId(activeSongId); setShowEditor(true); } }
+  function goHome()    { setActiveSong(null as any); setSidebarOpen(false); }
+  function openNew()   { setEditId(undefined); setShowEditor(true); setSidebarOpen(false); }
+  function openEdit()  { if (activeSongId) { setEditId(activeSongId); setShowEditor(true); } }
+  function openBible() { setShowBible(true); setSidebarOpen(false); }
 
-  // Solo mostrar WelcomeScreen cuando las canciones ya cargaron Y no hay canción activa
-  const songFound  = activeSongId && songs.find((s) => s.id === activeSongId);
-  const showWelcome = songsReady && !songFound;
+  const songFound   = activeSongId && songs.find((s) => s.id === activeSongId);
+  const showWelcome = !songFound; // siempre Home hasta que el usuario elija una canción
 
   return (
     <div className="h-full flex overflow-hidden">
@@ -63,7 +62,12 @@ export default function Home() {
       )}
 
       <div className={`fixed md:relative z-40 h-full transition-transform duration-200 ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
-        <Sidebar onNewSong={openNew} onImport={() => { setShowImport(true); setSidebarOpen(false); }} />
+        <Sidebar
+          onNewSong={openNew}
+          onImport={() => { setShowImport(true); setSidebarOpen(false); }}
+          onHome={goHome}
+          onBible={openBible}
+        />
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
@@ -74,10 +78,9 @@ export default function Home() {
           </button>
           <AdoraLogo size={34} />
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button onClick={() => setShowBible(true)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text3)" }}>
-              <BookOpen size={18} />
-            </button>
-            {activeSongId && <>
+            <button onClick={goHome}   style={{ background: "none", border: "none", cursor: "pointer", color: showWelcome ? "var(--c-indigo2)" : "var(--c-text3)" }}><HomeIcon size={18} /></button>
+            <button onClick={openBible} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text3)" }}><BookOpen size={18} /></button>
+            {!showWelcome && <>
               <button onClick={() => setShowQuickEdit(true)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text3)" }}><Wand2 size={18} /></button>
               <button onClick={openEdit} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-text3)" }}><Pencil size={18} /></button>
             </>}
@@ -85,16 +88,11 @@ export default function Home() {
         </div>
 
         {/* Desktop action bar */}
-        <div className="hidden md:flex justify-end items-center gap-4 px-4 pt-3">
-          {/* Biblia siempre visible */}
-          <button
-            onClick={() => setShowBible(true)}
-            style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--c-text3)" }}
-          >
-            <BookOpen size={13} /> Biblia
-          </button>
-
-          {activeSongId && <>
+        <div className="hidden md:flex justify-end items-center gap-4 px-4 pt-3" style={{ minHeight: 36 }}>
+          {!showWelcome && <>
+            <button onClick={goHome} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--c-text3)" }}>
+              <HomeIcon size={13} /> Inicio
+            </button>
             <button onClick={() => setShowQuickEdit(true)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--c-text3)" }}>
               <Wand2 size={13} /> Editor rápido
             </button>
@@ -102,18 +100,20 @@ export default function Home() {
               <Pencil size={13} /> Editar
             </button>
             <DeleteSongButton
-              songId={activeSongId}
+              songId={activeSongId!}
               songTitle={songs.find(s => s.id === activeSongId)?.title ?? ""}
-              onDeleted={() => {}}
+              onDeleted={goHome}
             />
           </>}
         </div>
 
-        {/* Main content — sin flicker */}
+        {/* Main content */}
         {!songsReady
-          ? null                    // esperando que carguen las canciones (silencioso)
+          ? <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <AdoraLogo size={40} className="mx-auto" />
+            </div>
           : showWelcome
-            ? <WelcomeScreen onOpenBible={() => setShowBible(true)} />
+            ? <WelcomeScreen onOpenBible={openBible} />
             : <SongViewer />
         }
       </div>
@@ -126,3 +126,4 @@ export default function Home() {
     </div>
   );
 }
+

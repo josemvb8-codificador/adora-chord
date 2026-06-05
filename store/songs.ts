@@ -101,9 +101,7 @@ export const useSongsStore = create<SongsState>()(
 
         const all = [...(own ?? []), ...(shared ?? [])].map(fromDb);
         set({ songs: all, syncing: false });
-        if (all.length > 0 && !get().activeSongId) {
-          set({ activeSongId: all[0].id });
-        }
+        // No auto-select: el usuario elige desde la pantalla de bienvenida
       },
 
       addSong: async (song, userId) => {
