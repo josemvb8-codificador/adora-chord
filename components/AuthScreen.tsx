@@ -51,8 +51,8 @@ export default function AuthScreen() {
     <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "var(--c-bg)", padding: 16 }}>
       <div style={{ width: "100%", maxWidth: 380 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <AdoraLogo size={40} className="mx-auto mb-4" />
-          <p style={{ color: "var(--c-text3)", fontSize: 14, marginTop: 6 }}>
+          <AdoraLogo size={120} className="mx-auto mb-2" />
+          <p style={{ color: "var(--c-text3)", fontSize: 14, marginTop: 8 }}>
             {mode === "login" ? "Inicia sesión para continuar" : "Crea tu cuenta en Adora"}
           </p>
         </div>

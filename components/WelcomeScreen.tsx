@@ -65,7 +65,7 @@ export default function WelcomeScreen({ onOpenBible }: Props) {
 
       {/* Tagline */}
       <p style={{ fontSize: 22, fontWeight: 700, color: "var(--c-text)", marginTop: 4, marginBottom: 4, letterSpacing: "-0.01em", textAlign: "center" }}>
-        Listo para Adorar
+        ¿Listo para Adorar?
       </p>
       <p style={{ fontSize: 13, color: "var(--c-text3)", marginBottom: 24, textAlign: "center" }}>
         {songs.length > 0

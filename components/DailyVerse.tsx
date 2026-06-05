@@ -12,15 +12,14 @@ interface BibleVersion {
 }
 
 const VERSIONS: BibleVersion[] = [
-  { id: "rvr1960", label: "RVR 1960",        lang: "es", embedded: "rvr1960" },
-  { id: "nvi",     label: "NVI",             lang: "es", embedded: "nvi"     },
-  { id: "kjv",     label: "KJV",             lang: "en", apiId: "kjv"        },
-  { id: "web",     label: "WEB",             lang: "en", apiId: "web"        },
-  { id: "nkjv",    label: "NKJV",            lang: "en", apiId: "web"        }, // fallback WEB
-  { id: "bbe",     label: "BBE",             lang: "en", apiId: "bbe"        },
-  { id: "darby",   label: "Darby",           lang: "en", apiId: "darby"      },
-  { id: "asv",     label: "ASV (1901)",      lang: "en", apiId: "asv"        },
-  { id: "ylt",     label: "Young's Literal", lang: "en", apiId: "ylt"        },
+  { id: "rvr1960",  label: "RVR 1960 (embed)", lang: "es", embedded: "rvr1960" },
+  { id: "nvi",      label: "NVI (embed)",       lang: "es", embedded: "nvi"     },
+  { id: "kjv",      label: "KJV",               lang: "en", apiId: "kjv"        },
+  { id: "web",      label: "WEB",               lang: "en", apiId: "web"        },
+  { id: "asv",      label: "ASV (1901)",         lang: "en", apiId: "asv"        },
+  { id: "bbe",      label: "BBE",               lang: "en", apiId: "bbe"        },
+  { id: "darby",    label: "Darby",             lang: "en", apiId: "darby"      },
+  { id: "ylt",      label: "Young's Literal",   lang: "en", apiId: "ylt"        },
 ];
 
 export default function DailyVerse() {

@@ -87,19 +87,19 @@ export interface BibleVersion {
 }
 
 export const BIBLE_VERSIONS: BibleVersion[] = [
-  // Español — getbible.net
-  { id: "rvr1960", label: "RVR 1960",          lang: "es", api: "getbible", apiKey: "rvr1960" },
-  { id: "rv1909",  label: "RV 1909",           lang: "es", api: "getbible", apiKey: "rv1909"  },
-  { id: "rv1865",  label: "RV 1865",           lang: "es", api: "getbible", apiKey: "rv1865"  },
-  // English — getbible.net
-  { id: "kjv",     label: "KJV",               lang: "en", api: "getbible", apiKey: "kjv"     },
-  { id: "nkjv",    label: "NKJV",              lang: "en", api: "getbible", apiKey: "nkjv"    },
-  { id: "web",     label: "WEB",               lang: "en", api: "getbible", apiKey: "web"     },
-  { id: "asv",     label: "ASV (1901)",        lang: "en", api: "getbible", apiKey: "asv"     },
-  // English — bible-api.com
-  { id: "bbe",     label: "BBE",               lang: "en", api: "bibleapi", apiKey: "bbe"     },
-  { id: "darby",   label: "Darby",             lang: "en", api: "bibleapi", apiKey: "darby"   },
-  { id: "ylt",     label: "Young's Literal",   lang: "en", api: "bibleapi", apiKey: "ylt"     },
+  // ── Español (getbible.net — traducciones libres disponibles) ──
+  // RVR1960 y NVI son copyright — usamos las versiones libres más cercanas
+  { id: "valera",  label: "RV 1909",              lang: "es", api: "getbible", apiKey: "valera"  },
+  { id: "sse",     label: "Sagradas Escrituras 1569", lang: "es", api: "getbible", apiKey: "sse" },
+  { id: "rv1858",  label: "RV 1858 (NT)",          lang: "es", api: "getbible", apiKey: "rv1858" },
+  // ── English (getbible.net) ────────────────────────────────────
+  { id: "kjv",     label: "KJV",                   lang: "en", api: "getbible", apiKey: "kjv"         },
+  { id: "akjv",    label: "American KJV",           lang: "en", api: "getbible", apiKey: "akjv"        },
+  { id: "asv",     label: "ASV (1901)",             lang: "en", api: "getbible", apiKey: "asv"         },
+  { id: "web",     label: "WEB",                    lang: "en", api: "getbible", apiKey: "web"         },
+  { id: "ylt",     label: "Young's Literal",        lang: "en", api: "getbible", apiKey: "ylt"         },
+  { id: "basicenglish", label: "Basic English",     lang: "en", api: "getbible", apiKey: "basicenglish"},
+  { id: "douay",   label: "Douay-Rheims",           lang: "en", api: "getbible", apiKey: "douayrheims" },
 ];
 
 export interface Verse { num: number; text: string; }
@@ -120,10 +120,13 @@ export async function fetchChapter(
     }
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    const versesObj: Record<string, { verse_nr: number; verse: string }> = data.verses ?? {};
-    return Object.values(versesObj)
-      .sort((a, b) => a.verse_nr - b.verse_nr)
-      .map((v) => ({ num: v.verse_nr, text: v.verse.trim() }));
+    // getbible.net v2 returns verses as an array: [{verse, text, ...}]
+    const versesArr: { verse: number; text: string }[] = Array.isArray(data.verses)
+      ? data.verses
+      : Object.values(data.verses ?? {});
+    return versesArr
+      .sort((a, b) => a.verse - b.verse)
+      .map((v) => ({ num: v.verse, text: v.text.trim() }));
   } else {
     const book = BIBLE_BOOKS.find((b) => b.num === bookNum);
     if (!book) throw new Error("Libro no encontrado");
