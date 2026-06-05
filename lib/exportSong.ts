@@ -29,33 +29,43 @@ export async function exportToPdf(song: Song, semitones: number, notation: "amer
   }
 
   // ── Header — franja índigo con logo vectorial ──
+  const HEADER_H = 26;
   doc.setFillColor(99, 102, 241);
-  doc.rect(0, 0, W, 16, "F");
+  doc.rect(0, 0, W, HEADER_H, "F");
 
-  // Logo dibujado directamente (sin imagen) → siempre perfecto
+  // Franja de acento rosa en la parte inferior del header
+  doc.setFillColor(244, 114, 182);
+  doc.rect(0, HEADER_H - 2, W, 2, "F");
+
+  // Logo: "Ad" blanco + "o" naranja (llama) + "ra" blanco
+  // Tamaño grande, centrado verticalmente en el header
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
+  doc.setFontSize(22);
+  const textY = HEADER_H / 2 + 4; // centrado vertical
 
-  // "Ad" — blanco
   doc.setTextColor(255, 255, 255);
-  doc.text("Ad", MARGIN, 11);
+  doc.text("Ad", MARGIN, textY);
   const adW = doc.getTextWidth("Ad");
 
-  // "o" → llama: naranja-rosa
-  doc.setTextColor(251, 146, 60);
-  doc.text("o", MARGIN + adW, 11);
+  // "o" en color llama (naranja cálido)
+  doc.setTextColor(253, 186, 116);
+  doc.text("o", MARGIN + adW, textY);
   const oW = doc.getTextWidth("o");
 
-  // "ra" — blanco
+  // Subrayado rosa bajo la "o" — representa la base de la llama
+  doc.setFillColor(244, 114, 182);
+  doc.rect(MARGIN + adW, textY + 1, oW, 1, "F");
+
   doc.setTextColor(255, 255, 255);
-  doc.text("ra", MARGIN + adW + oW, 11);
+  doc.text("ra", MARGIN + adW + oW, textY);
 
-  // Pequeño acento rosa bajo la "o" (simula base de llama)
-  doc.setDrawColor(244, 114, 182);
-  doc.setLineWidth(0.6);
-  doc.line(MARGIN + adW, 12.5, MARGIN + adW + oW, 12.5);
+  // Tagline pequeña a la derecha
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(199, 210, 254); // indigo-200
+  doc.text("alabanzas cristianas", W - MARGIN, textY, { align: "right" });
 
-  y = 24;
+  y = HEADER_H + 8;
 
   // ── Title ──
   doc.setTextColor(15, 23, 42);
@@ -176,7 +186,7 @@ export async function exportToPdf(song: Song, semitones: number, notation: "amer
     doc.text("Adora", MARGIN, pageH - 7);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(148, 163, 184);
-    doc.text(` — ${song.title}`, MARGIN + doc.getTextWidth("Adora"), pageH - 7);
+    doc.text(`  —  ${song.title}`, MARGIN + doc.getTextWidth("Adora"), pageH - 7);
     doc.text(`Página ${i} / ${totalPages}`, W - MARGIN, pageH - 7, { align: "right" });
   }
 
