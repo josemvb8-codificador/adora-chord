@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useSongsStore, getTransposedSong } from "@/store/songs";
-import { chordToNotation } from "@/lib/chords";
+import { chordToNotation, getChordComplexity } from "@/lib/chords";
 import { ChevronUp, ChevronDown, Download, FileText, FileType2 } from "lucide-react";
 import GuitarChord from "./GuitarChord";
 import PianoChord from "./PianoChord";
@@ -45,7 +45,7 @@ export default function SongViewer() {
   }
   const allChords = Array.from(
     new Set(song.sections.flatMap((s) => s.lines.flatMap((l) => l.chords.map((c) => c.chord))))
-  );
+  ).sort((a, b) => getChordComplexity(a) - getChordComplexity(b));
 
   const btnBase: React.CSSProperties = {
     fontSize: 12,
