@@ -1,14 +1,44 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useSongsStore } from "@/store/songs";
 import { useAuthStore } from "@/store/auth";
-import { Song, Section, SongLine, SectionType } from "@/types";
+import { Song, Section, SongLine, SectionType, SongCategory } from "@/types";
 import { X, Plus, Trash2 } from "lucide-react";
 import { ALL_ROOTS } from "@/lib/chords";
+
+function AutoTextarea({ value, onChange, placeholder, className }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; className?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.style.height = "auto";
+      ref.current.style.height = `${ref.current.scrollHeight}px`;
+    }
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={6}
+      className={className}
+      style={{ resize: "none", overflow: "hidden", minHeight: "160px" }}
+    />
+  );
+}
 
 function uid() { return crypto.randomUUID(); }
 
 const SECTION_TYPES: SectionType[] = ["intro", "verse", "prechorus", "chorus", "bridge", "interlude", "solo", "outro"];
+
+const CATEGORIES: { value: SongCategory; label: string; emoji: string }[] = [
+  { value: "alabanza", label: "Alabanza", emoji: "🎤" },
+  { value: "himno",    label: "Himno",    emoji: "📖" },
+  { value: "coro",     label: "Coro",     emoji: "🎵" },
+  { value: "otro",     label: "Otro",     emoji: "🎸" },
+];
 const SECTION_LABELS: Record<SectionType, string> = {
   intro: "Intro", verse: "Verso", prechorus: "Pre-Coro", chorus: "Coro",
   bridge: "Puente", interlude: "Interludio", solo: "Solo", outro: "Final",
@@ -29,6 +59,7 @@ export default function SongEditor({ onClose, editId }: Props) {
   const [mode, setMode] = useState<"major" | "minor">(existing?.mode || "major");
   const [capo, setCapo] = useState(existing?.capo ?? 0);
   const [tempo, setTempo] = useState(existing?.tempo ?? 75);
+  const [category, setCategory] = useState<SongCategory>(existing?.category ?? "alabanza");
   const [sections, setSections] = useState<Section[]>(
     existing?.sections || [
       { id: uid(), type: "verse", name: "Verso 1", lines: [{ lyrics: "", chords: [] }] },
@@ -106,6 +137,7 @@ export default function SongEditor({ onClose, editId }: Props) {
       showGuitarTab: false,
       showPianoTab: false,
       sections,
+      category,
     };
     try {
     if (editId) {
@@ -122,125 +154,145 @@ export default function SongEditor({ onClose, editId }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-40 bg-zinc-950 overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="fixed inset-0 z-40 bg-white overflow-y-auto">
+      <div className="max-w-7xl mx-auto px-8 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-white">{editId ? "Editar canción" : "Nueva canción"}</h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white"><X size={22} /></button>
+          <h2 className="text-2xl font-bold text-zinc-900">{editId ? "Editar canción" : "Nueva canción"}</h2>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700"><X size={22} /></button>
         </div>
 
-        {/* Metadata */}
-        <div className="space-y-3 mb-6">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Título de la canción *"
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 text-base focus:outline-none focus:border-indigo-500"
-          />
-          <input
-            value={artist}
-            onChange={(e) => setArtist(e.target.value)}
-            placeholder="Artista / Ministerio"
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-indigo-500"
-          />
-          <div className="flex gap-2 flex-wrap">
-            {/* Key */}
-            <select
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
-            >
-              {ALL_ROOTS.map((r) => <option key={r}>{r}</option>)}
-            </select>
-            {/* Mode */}
-            <button
-              onClick={() => setMode(mode === "major" ? "minor" : "major")}
-              className={`px-3 py-2 rounded-lg text-sm transition-colors ${mode === "major" ? "bg-indigo-600 text-white" : "bg-zinc-800 text-zinc-300"}`}
-            >
-              {mode === "major" ? "Mayor" : "Menor"}
-            </button>
-            {/* Capo */}
-            <div className="flex items-center gap-2 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2">
-              <span className="text-zinc-400 text-sm">Cejilla</span>
+        <div className="flex gap-10 items-start">
+          {/* Left column: Metadata + Category + Save */}
+          <div className="w-88 shrink-0 sticky top-8 space-y-6" style={{width: "22rem"}}>
+            {/* Metadata */}
+            <div className="space-y-3">
               <input
-                type="number" min={0} max={11} value={capo}
-                onChange={(e) => setCapo(Number(e.target.value))}
-                className="w-8 bg-transparent text-white text-sm text-center focus:outline-none"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Título de la canción *"
+                className="w-full bg-white border border-zinc-300 rounded-xl px-4 py-3.5 text-zinc-900 placeholder-zinc-400 text-lg focus:outline-none focus:border-indigo-500"
               />
-            </div>
-            {/* Tempo */}
-            <div className="flex items-center gap-2 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2">
-              <span className="text-zinc-400 text-sm">BPM</span>
               <input
-                type="number" min={40} max={240} value={tempo}
-                onChange={(e) => setTempo(Number(e.target.value))}
-                className="w-12 bg-transparent text-white text-sm text-center focus:outline-none"
+                value={artist}
+                onChange={(e) => setArtist(e.target.value)}
+                placeholder="Artista / Ministerio"
+                className="w-full bg-white border border-zinc-300 rounded-xl px-4 py-3.5 text-zinc-900 placeholder-zinc-400 text-base focus:outline-none focus:border-indigo-500"
               />
-            </div>
-          </div>
-        </div>
-
-        {/* Sections */}
-        <div className="space-y-4 mb-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-zinc-300 text-sm font-medium">Secciones</h3>
-            <p className="text-zinc-600 text-xs">Usa [G] [Am] para acordes inline</p>
-          </div>
-          {sections.map((section) => (
-            <div key={section.id} className="bg-zinc-800/60 border border-zinc-700 rounded-xl p-4 space-y-3">
-              <div className="flex items-center gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <select
-                  value={section.type}
-                  onChange={(e) => updateSection(section.id, {
-                    type: e.target.value as SectionType,
-                    name: SECTION_LABELS[e.target.value as SectionType],
-                  })}
-                  className="bg-zinc-700 border border-zinc-600 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none"
+                  value={key}
+                  onChange={(e) => setKey(e.target.value)}
+                  className="bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 text-base focus:outline-none focus:border-indigo-500"
                 >
-                  {SECTION_TYPES.map((t) => <option key={t} value={t}>{SECTION_LABELS[t]}</option>)}
+                  {ALL_ROOTS.map((r) => <option key={r}>{r}</option>)}
                 </select>
-                <input
-                  value={section.name}
-                  onChange={(e) => updateSection(section.id, { name: e.target.value })}
-                  className="flex-1 bg-zinc-700 border border-zinc-600 rounded-lg px-2 py-1.5 text-white text-xs focus:outline-none"
-                />
-                <button onClick={() => removeSection(section.id)} className="text-zinc-600 hover:text-rose-400">
-                  <Trash2 size={15} />
+                <button
+                  onClick={() => setMode(mode === "major" ? "minor" : "major")}
+                  className={`px-4 py-2.5 rounded-lg text-base transition-colors ${mode === "major" ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-700 border border-zinc-300"}`}
+                >
+                  {mode === "major" ? "Mayor" : "Menor"}
                 </button>
+                <div className="flex items-center gap-2 bg-white border border-zinc-300 rounded-lg px-4 py-2.5">
+                  <span className="text-zinc-500 text-base">Cejilla</span>
+                  <input
+                    type="number" min={0} max={11} value={capo}
+                    onChange={(e) => setCapo(Number(e.target.value))}
+                    className="w-10 bg-transparent text-zinc-900 text-base text-center focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-2 bg-white border border-zinc-300 rounded-lg px-4 py-2.5">
+                  <span className="text-zinc-500 text-base">BPM</span>
+                  <input
+                    type="number" min={40} max={240} value={tempo}
+                    onChange={(e) => setTempo(Number(e.target.value))}
+                    className="w-14 bg-transparent text-zinc-900 text-base text-center focus:outline-none"
+                  />
+                </div>
               </div>
-              <textarea
-                value={getSectionText(section)}
-                onChange={(e) => setSectionText(section.id, e.target.value)}
-                rows={6}
-                placeholder={"[G]Santo, [D]Santo\nSanto es el Señor"}
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-indigo-500 resize-none"
-              />
             </div>
-          ))}
-          <button
-            onClick={addSection}
-            className="w-full border border-dashed border-zinc-700 rounded-xl py-3 text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-colors text-sm flex items-center justify-center gap-2"
-          >
-            <Plus size={16} /> Agregar sección
-          </button>
-        </div>
 
-        {/* Error */}
-        {saveError && (
-          <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, marginBottom: 12, color: "#f87171", fontSize: 13 }}>
-            {saveError}
+            {/* Category */}
+            <div>
+              <p className="text-zinc-500 text-xs mb-3 font-medium uppercase tracking-wider">Categoría</p>
+              <div className="flex gap-2 flex-wrap">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.value}
+                    onClick={() => setCategory(cat.value)}
+                    className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-base font-medium transition-colors ${
+                      category === cat.value
+                        ? "bg-indigo-600 text-white"
+                        : "bg-zinc-100 text-zinc-600 border border-zinc-200 hover:text-zinc-900"
+                    }`}
+                  >
+                    <span>{cat.emoji}</span> {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Error */}
+            {saveError && (
+              <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+                {saveError}
+              </div>
+            )}
+
+            {/* Save */}
+            <button
+              onClick={save}
+              disabled={!title.trim() || saving}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-4 text-base transition-colors"
+            >
+              {saving ? "Guardando…" : editId ? "Guardar cambios" : "Crear canción"}
+            </button>
           </div>
-        )}
 
-        {/* Save */}
-        <button
-          onClick={save}
-          disabled={!title.trim() || saving}
-          className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl py-3 transition-colors"
-        >
-          {saving ? "Guardando…" : editId ? "Guardar cambios" : "Crear canción"}
-        </button>
+          {/* Right column: Sections */}
+          <div className="flex-1 min-w-0 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-zinc-700 text-sm font-medium">Secciones</h3>
+              <p className="text-zinc-400 text-xs">Usa [G] [Am] para acordes inline</p>
+            </div>
+            {sections.map((section) => (
+              <div key={section.id} className="bg-zinc-50 border border-zinc-200 rounded-xl p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <select
+                    value={section.type}
+                    onChange={(e) => updateSection(section.id, {
+                      type: e.target.value as SectionType,
+                      name: SECTION_LABELS[e.target.value as SectionType],
+                    })}
+                    className="bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 text-base focus:outline-none"
+                  >
+                    {SECTION_TYPES.map((t) => <option key={t} value={t}>{SECTION_LABELS[t]}</option>)}
+                  </select>
+                  <input
+                    value={section.name}
+                    onChange={(e) => updateSection(section.id, { name: e.target.value })}
+                    className="flex-1 bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 text-base focus:outline-none"
+                  />
+                  <button onClick={() => removeSection(section.id)} className="text-zinc-400 hover:text-rose-500 p-1.5">
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+                <AutoTextarea
+                  value={getSectionText(section)}
+                  onChange={(v) => setSectionText(section.id, v)}
+                  placeholder={"[G]Santo, [D]Santo\nSanto es el Señor"}
+                  className="w-full bg-white border border-zinc-300 rounded-lg px-5 py-4 text-zinc-800 text-base font-mono placeholder-zinc-400 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            ))}
+            <button
+              onClick={addSection}
+              className="w-full border border-dashed border-zinc-300 rounded-xl py-5 text-zinc-400 hover:text-zinc-700 hover:border-zinc-400 transition-colors text-base flex items-center justify-center gap-2"
+            >
+              <Plus size={16} /> Agregar sección
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
